@@ -19,7 +19,8 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
       - name: Setup Java
         uses: actions/setup-java@v4
@@ -28,15 +29,17 @@ jobs:
           java-version: 17
           cache: maven
 
-      - name: Lint
+      - name: Make mvnw executable
+        run: chmod +x mvnw
+
+      - name: Code Style Check
         run: ./mvnw checkstyle:check
 
-      - name: Tests
+      - name: Run Tests
         run: ./mvnw test
 
       - name: Build
         run: ./mvnw package -DskipTests
-
 # ------------------------------
 # 2️⃣ STATIC SECURITY ANALYSIS
 # ------------------------------
