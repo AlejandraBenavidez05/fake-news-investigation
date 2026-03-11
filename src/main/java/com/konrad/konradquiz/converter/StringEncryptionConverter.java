@@ -1,3 +1,4 @@
+
 package com.konrad.konradquiz.converter;
 
 import jakarta.persistence.AttributeConverter;
@@ -14,6 +15,11 @@ public class StringEncryptionConverter
 
     private static ApplicationContext applicationContext;
 
+    @edu.umd.cs.findbugs.annotations.SuppressFBWarnings(
+            value = "ST_WRITE_TO_STATIC_FROM_INSTANCE_METHOD",
+            justification = "Intentional: ApplicationContextAware pattern required for JPA AttributeConverter — " +
+                    "Spring guarantees single context, static field is safe here"
+    )
     @Override
     public void setApplicationContext(ApplicationContext ctx) {
         StringEncryptionConverter.applicationContext = ctx;

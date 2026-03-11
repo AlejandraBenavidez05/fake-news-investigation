@@ -5,6 +5,7 @@ import org.springframework.stereotype.Component;
 
 import javax.crypto.SecretKeyFactory;
 import javax.crypto.spec.PBEKeySpec;
+import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 
 @Component
@@ -15,7 +16,7 @@ public class EncryptionUtil {
     private static final int    ITERATIONS  = 310_000;  // OWASP 2024 recommendation
     private static final int    KEY_LENGTH  = 256;
     // Static salt is acceptable here — we only need consistency, not password security
-    private static final byte[] SALT        = "konradquiz-email-salt".getBytes();
+    private static final byte[] SALT = "konradquiz-email-salt".getBytes(StandardCharsets.UTF_8);
 
     public String hash(String value) {
         if (value == null) return null;

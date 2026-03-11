@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<FindBugsFilter>
+
+    <!-- ─────────────────────────────────────────────────────────────────
+         EI_EXPOSE_REP / EI_EXPOSE_REP2
+         Lombok @Data generates getters/setters that SpotBugs flags as
+         "exposing internal representation". This is intentional for
+         DTOs and JPA entities — defensive copying is not the Spring convention.
+    ──────────────────────────────────────────────────────────────────── -->
+    <Match>
+        <Bug pattern="EI_EXPOSE_REP,EI_EXPOSE_REP2"/>
+        <Or>
+            <Class name="~com\.konrad\.konradquiz\.dto\..*"/>
+            <Class name="~com\.konrad\.konradquiz\.entity\..*"/>
+        </Or>
+    </Match>
+
+    <!-- ─────────────────────────────────────────────────────────────────
+         ST_WRITE_TO_STATIC_FROM_INSTANCE_METHOD
+         ApplicationContextAware pattern required for JPA AttributeConverter.
+         Spring guarantees a single ApplicationContext — this is safe.
+    ──────────────────────────────────────────────────────────────────── -->
+    <Match>
+        <Bug pattern="ST_WRITE_TO_STATIC_FROM_INSTANCE_METHOD"/>
+        <Class name="com.konrad.konradquiz.converter.StringEncryptionConverter"/>
+    </Match>
+
+</FindBugsFilter>
