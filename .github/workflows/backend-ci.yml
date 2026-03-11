@@ -44,8 +44,9 @@ jobs:
     needs: build-test
     runs-on: ubuntu-latest
     permissions:
-      security-events: write
       contents: read
+      security-events: write
+      actions: read
 
     steps:
       - uses: actions/checkout@v4
