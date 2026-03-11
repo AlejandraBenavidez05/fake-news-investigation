@@ -1,1 +1,1 @@
-# fake-new-imvestigation
+# fake-news-investigation
