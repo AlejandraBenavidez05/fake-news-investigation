@@ -1,0 +1,123 @@
+name: Backend CI
+
+on:
+  push:
+    branches:
+      - "**"
+  pull_request:
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}/backend
+
+jobs:
+
+# ------------------------------
+# 1️⃣ BUILD + TEST
+# ------------------------------
+  build-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+          cache: maven
+
+      - name: Lint
+        run: ./mvnw checkstyle:check
+
+      - name: Tests
+        run: ./mvnw test
+
+      - name: Build
+        run: ./mvnw package -DskipTests
+
+# ------------------------------
+# 2️⃣ STATIC SECURITY ANALYSIS
+# ------------------------------
+  codeql:
+    needs: build-test
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: github/codeql-action/init@v3
+        with:
+          languages: java
+
+      - uses: github/codeql-action/autobuild@v3
+
+      - uses: github/codeql-action/analyze@v3
+
+# ------------------------------
+# 3️⃣ DOCKER BUILD + SCAN + PUSH
+# ------------------------------
+  docker:
+    needs: [build-test, codeql]
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/develop' || github.ref == 'refs/heads/main'
+
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+
+      - uses: actions/checkout@v4
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GHCR_TOKEN }}
+
+      - name: Set tag
+        run: |
+          if [[ "${GITHUB_REF}" == "refs/heads/main" ]]; then
+            echo "TAG=prod-${GITHUB_SHA}" >> $GITHUB_ENV
+          else
+            echo "TAG=dev-${GITHUB_SHA}" >> $GITHUB_ENV
+          fi
+
+# ------------------------------
+# BUILD IMAGE (LOAD LOCALLY)
+# ------------------------------
+      - name: Build Docker image
+        uses: docker/build-push-action@v6
+        with:
+          push: false
+          load: true
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.TAG }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+# ------------------------------
+# SECURITY SCAN
+# ------------------------------
+      - name: Docker Scout scan
+        uses: docker/scout-action@v1
+        with:
+          image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.TAG }}
+          only-severities: critical,high
+          exit-code: true
+
+# ------------------------------
+# PUSH IMAGE
+# ------------------------------
+      - name: Push image
+        uses: docker/build-push-action@v6
+        with:
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.TAG }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
