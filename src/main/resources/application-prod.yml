@@ -1,8 +1,6 @@
 spring:
   datasource:
     url: ${AZURE_SQL_URL}
-    username: ${AZURE_SQL_USER}
-    password: ${AZURE_SQL_PASSWORD}
     driver-class-name: com.microsoft.sqlserver.jdbc.SQLServerDriver
     hikari:
       connection-timeout: 30000                  # 30s max wait for connection

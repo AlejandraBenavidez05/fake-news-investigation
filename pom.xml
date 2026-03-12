@@ -82,6 +82,17 @@
 			<version>4.8.3</version>
 			<optional>true</optional>   <!-- compile-time only, not in final JAR -->
 		</dependency>
+		<dependency>
+			<groupId>com.azure</groupId>
+			<artifactId>azure-identity</artifactId>
+			<version>1.12.2</version>
+		</dependency>
+
+		<dependency>
+			<groupId>com.microsoft.sqlserver</groupId>
+			<artifactId>mssql-jdbc</artifactId>
+			<version>12.6.1.jre11</version>
+		</dependency>
 	</dependencies>
 
 	<build>
