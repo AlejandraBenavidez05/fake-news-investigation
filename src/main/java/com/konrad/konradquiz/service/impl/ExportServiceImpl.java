@@ -31,42 +31,72 @@ public class ExportServiceImpl implements IExportService {
                 "attachment; filename=\"konradquiz_export.csv\"");
 
         try {
-            // Loads full entities — @Convert decrypts email automatically ✅
             List<Answer> answers = answerRepository.findAllForExport();
             PrintWriter writer = response.getWriter();
 
+            // ── All columns from all three tables ────────────────────────────
             writer.println(
-                    "participantId,alias,email,sex,age,experimentGroup," +
-                            "questionCode,constructo,subCategory,subCategory2," +
-                            "itemText,correctAnswer,score,questionOrder,answeredAt,isCorrect"
+                    // participants table
+                    "participantId," +
+                            "alias," +
+                            "email," +
+                            "sex," +
+                            "age," +
+                            "region," +
+                            "experimentGroup," +
+                            "completionTimeSeconds," +
+                            "registeredAt," +
+                            // questions table
+                            "questionCode," +
+                            "constructo," +
+                            "subCategory," +
+                            "subCategory2," +
+                            "itemText," +
+                            "correctAnswer," +
+                            "referenceApa," +
+                            "supportingQuote," +
+                            // answers table
+                            "score," +
+                            "questionOrder," +
+                            "answeredAt," +
+                            // computed
+                            "isCorrect"
             );
 
             for (Answer answer : answers) {
-                Participant p = answer.getParticipant();  // email already decrypted ✅
+                Participant p = answer.getParticipant();
                 Question q   = answer.getQuestion();
 
-                // Fix — null check first
                 boolean isCorrect = q.getCorrectAnswer() != null && (
                         (q.getCorrectAnswer() == Question.CorrectAnswer.REAL && answer.getScore() >= 50) ||
                                 (q.getCorrectAnswer() == Question.CorrectAnswer.FAKE && answer.getScore() < 50)
                 );
 
                 writer.println(String.join(",",
+                        // ── Participant ──────────────────────────────────────
                         sanitize(p.getId()),
                         sanitize(p.getAlias()),
-                        sanitize(p.getEmail()),                  // plain text ✅ @Convert ran
-                        sanitize(p.getSex().name()),
+                        sanitize(p.getEmail()),              // decrypted via @Convert ✅
+                        sanitize(p.getSex()),
                         sanitize(p.getAge()),
-                        sanitize(p.getExperimentGroup().name()),
+                        sanitize(p.getRegion()),
+                        sanitize(p.getExperimentGroup()),
+                        sanitize(p.getCompletionTimeSeconds()),
+                        sanitize(p.getRegisteredAt()),
+                        // ── Question ─────────────────────────────────────────
                         sanitize(q.getQuestionCode()),
                         sanitize(q.getConstructo()),
                         sanitize(q.getSubCategory()),
                         sanitize(q.getSubCategory2()),
                         sanitize(q.getItemText()),
                         sanitize(q.getCorrectAnswer()),
+                        sanitize(q.getReferenceApa()),
+                        sanitize(q.getSupportingQuote()),
+                        // ── Answer ───────────────────────────────────────────
                         sanitize(answer.getScore()),
                         sanitize(answer.getQuestionOrder()),
                         sanitize(answer.getAnsweredAt()),
+                        // ── Computed ─────────────────────────────────────────
                         sanitize(isCorrect)
                 ));
             }

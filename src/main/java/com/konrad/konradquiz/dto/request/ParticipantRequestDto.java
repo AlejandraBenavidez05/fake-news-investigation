@@ -27,4 +27,8 @@ public class ParticipantRequestDto {
     @NotNull
     @Min(5) @Max(120)
     private Integer age;
+
+    @NotBlank
+    @Size(min = 2, max = 100)
+    private String region;
 }

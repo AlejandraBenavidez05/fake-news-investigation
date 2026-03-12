@@ -16,4 +16,6 @@ public class ParticipantResponseDto {
     private Integer age;
     private ExperimentGroup experimentGroup;
     private LocalDateTime registeredAt;
+    private String region;
+    private Long completionTimeSeconds;
 }

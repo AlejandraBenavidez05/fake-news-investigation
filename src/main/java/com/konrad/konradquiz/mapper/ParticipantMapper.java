@@ -14,7 +14,9 @@ public class ParticipantMapper {
                 .email(participant.getEmail())
                 .sex(participant.getSex())
                 .age(participant.getAge())
+                .region(participant.getRegion())
                 .experimentGroup(participant.getExperimentGroup())
+                .completionTimeSeconds(participant.getCompletionTimeSeconds())
                 .registeredAt(participant.getRegisteredAt())
                 .build();
     }

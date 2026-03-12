@@ -8,5 +8,6 @@ import com.konrad.konradquiz.entity.Participant;
 public interface IParticipantService {
     ExperimentSessionDto register(ParticipantRequestDto dto);
     ParticipantResponseDto findById(Long id);
-    Participant findEntityById(Long id);          // ← returns raw entity for internal service use
+    Participant findEntityById(Long id);// ← returns raw entity for internal service use
+    void recordCompletionTime(Long participantId, Long completionTimeSeconds);
 }

@@ -54,6 +54,12 @@ public class Participant {
     @OneToMany(mappedBy = "participant", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Answer> answers = new ArrayList<>();
 
+    @Column(nullable = false, length = 100)
+    private String region;                  // e.g. "Bogotá", "Cali", "Madrid"
+
+    @Column
+    private Long completionTimeSeconds;     // null until answers submitted, then set
+
     public enum Sex { MALE, FEMALE, OTHER }
 
     public enum ExperimentGroup {

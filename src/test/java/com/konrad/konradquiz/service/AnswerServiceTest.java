@@ -20,6 +20,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.time.Instant;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.*;
@@ -50,6 +51,7 @@ class AnswerServiceTest {
 
         // Build 4 valid answers matching 4 mock questions
         validBatchRequest = new BatchAnswerRequestDto();
+        validBatchRequest.setStartedAt(Instant.now().getEpochSecond() - 30); // simulates 30s ago
         validBatchRequest.setAnswers(List.of(
                 buildAnswerRequest("P1", 75, 1),
                 buildAnswerRequest("P2", 20, 2),
@@ -104,6 +106,7 @@ class AnswerServiceTest {
         // Assert — capture and verify scores
         ArgumentCaptor<List<Answer>> captor = ArgumentCaptor.forClass(List.class);
         verify(answerRepository).saveAll(captor.capture());
+        verify(participantService).recordCompletionTime(eq(1L), anyLong());
 
         List<Answer> savedAnswers = captor.getValue();
         assertThat(savedAnswers.get(0).getScore()).isEqualTo(75);
@@ -130,6 +133,7 @@ class AnswerServiceTest {
         // Assert
         ArgumentCaptor<List<Answer>> captor = ArgumentCaptor.forClass(List.class);
         verify(answerRepository).saveAll(captor.capture());
+        verify(participantService).recordCompletionTime(eq(1L), anyLong());
 
         List<Answer> savedAnswers = captor.getValue();
         assertThat(savedAnswers.get(0).getQuestionOrder()).isEqualTo(1);
@@ -207,5 +211,43 @@ class AnswerServiceTest {
                 .itemText("Test question " + code)
                 .correctAnswer(Question.CorrectAnswer.REAL)
                 .build();
+    }
+    @Test
+    @DisplayName("submitBatch() — completion time is recorded after saving answers")
+    void submitBatch_completionTimeRecorded() {
+        // Arrange
+        long startedAt = Instant.now().getEpochSecond() - 45; // 45 seconds ago
+        validBatchRequest.setStartedAt(startedAt);
+
+        when(participantService.findEntityById(1L)).thenReturn(mockParticipant);
+        when(answerRepository.countByParticipantId(1L)).thenReturn(0L);
+        when(questionService.countAll()).thenReturn(4L);
+        when(questionService.findEntityByCode(anyString()))
+                .thenAnswer(inv -> buildQuestion(inv.getArgument(0)));
+        when(answerRepository.saveAll(anyList()))
+                .thenAnswer(inv -> inv.getArgument(0));
+
+        // Act
+        answerService.submitBatch(1L, validBatchRequest);
+
+        // Assert — completion time is positive and roughly correct
+        ArgumentCaptor<Long> timeCaptor = ArgumentCaptor.forClass(Long.class);
+        verify(participantService).recordCompletionTime(eq(1L), timeCaptor.capture());
+        assertThat(timeCaptor.getValue()).isGreaterThanOrEqualTo(44L); // at least 44s
+        assertThat(timeCaptor.getValue()).isLessThan(60L);             // but not unreasonably large
+    }
+
+    @Test
+    @DisplayName("submitBatch() — completion time not recorded when already submitted")
+    void submitBatch_alreadySubmitted_completionTimeNotRecorded() {
+        // Arrange
+        when(participantService.findEntityById(1L)).thenReturn(mockParticipant);
+        when(answerRepository.countByParticipantId(1L)).thenReturn(4L);
+
+        // Act & Assert
+        assertThatThrownBy(() -> answerService.submitBatch(1L, validBatchRequest))
+                .isInstanceOf(BusinessException.class);
+
+        verify(participantService, never()).recordCompletionTime(any(), any());
     }
 }

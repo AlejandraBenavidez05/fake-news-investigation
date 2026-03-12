@@ -52,6 +52,7 @@ public class ParticipantServiceImpl implements IParticipantService {
                 .emailHash(emailHash)
                 .sex(dto.getSex())
                 .age(dto.getAge())
+                .region(dto.getRegion())
                 .experimentGroup(group)
                 .build();
 
@@ -86,5 +87,14 @@ public class ParticipantServiceImpl implements IParticipantService {
     public Participant findEntityById(Long id) {
         return participantRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Participant not found: " + id));
+    }
+
+    @Override
+    @Transactional
+    public void recordCompletionTime(Long participantId, Long completionTimeSeconds) {
+        Participant participant = participantRepository.findById(participantId)
+                .orElseThrow(() -> new ResourceNotFoundException("Participant not found: " + participantId));
+        participant.setCompletionTimeSeconds(completionTimeSeconds);
+        participantRepository.save(participant);
     }
 }

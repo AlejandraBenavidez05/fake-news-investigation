@@ -15,6 +15,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -30,15 +31,12 @@ public class AnswerServiceImpl implements IAnswerService {
     @Override
     public BatchAnswerResponseDto submitBatch(Long participantId, BatchAnswerRequestDto dto) {
 
-        // Delegates to ParticipantService — no direct repo access
         Participant participant = participantService.findEntityById(participantId);
 
-        // Business rule: participant cannot submit answers twice
         if (answerRepository.countByParticipantId(participantId) > 0) {
             throw new BusinessException("Participant has already submitted answers.");
         }
 
-        // Business rule: must answer all questions
         long totalQuestions = questionService.countAll();
         if (dto.getAnswers().size() != totalQuestions) {
             throw new BusinessException(
@@ -48,10 +46,7 @@ public class AnswerServiceImpl implements IAnswerService {
 
         List<Answer> answers = new ArrayList<>();
         for (AnswerRequestDto answerDto : dto.getAnswers()) {
-
-            // Delegates to QuestionService — no direct repo access
             Question question = questionService.findEntityByCode(answerDto.getQuestionCode());
-
             answers.add(Answer.builder()
                     .participant(participant)
                     .question(question)
@@ -61,6 +56,10 @@ public class AnswerServiceImpl implements IAnswerService {
         }
 
         answerRepository.saveAll(answers);
+
+        // Calculate completion time — frontend sends startedAt as epoch seconds
+        long completionTimeSeconds = Instant.now().getEpochSecond() - dto.getStartedAt();
+        participantService.recordCompletionTime(participantId, completionTimeSeconds);
 
         return BatchAnswerResponseDto.builder()
                 .participantId(participantId)
