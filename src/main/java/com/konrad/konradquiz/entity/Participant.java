@@ -1,8 +1,22 @@
 package com.konrad.konradquiz.entity;
 
 import com.konrad.konradquiz.converter.StringEncryptionConverter;
-import jakarta.persistence.*;
-import lombok.*;
+import jakarta.persistence.Id;
+import jakarta.persistence.Entity;
+import jakarta.persistence.Index;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.Table;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Column;
+import jakarta.persistence.Convert;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.OneToMany;
+import jakarta.persistence.CascadeType;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
 import org.hibernate.annotations.CreationTimestamp;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -43,8 +57,12 @@ public class Participant {
     private Integer age;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 10)
-    private ExperimentGroup experimentGroup;
+    @Column(nullable = false, length = 20)
+    private FeedbackTiming feedbackTiming;      // GROUP_A or GROUP_B
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    private PresentationFormat presentationFormat;  // INSTAGRAM, WHATSAPP, TEXT
 
     @CreationTimestamp
     @Column(nullable = false, updatable = false)
@@ -62,8 +80,14 @@ public class Participant {
 
     public enum Sex { MALE, FEMALE, OTHER }
 
-    public enum ExperimentGroup {
-        GROUP_A,  // sees correct answer after EACH question
-        GROUP_B   // sees correct answers only AFTER finishing ALL questions
+    public enum FeedbackTiming {
+        GROUP_A,  // feedback after EACH question
+        GROUP_B   // feedback only AFTER ALL questions
+    }
+
+    public enum PresentationFormat {
+        INSTAGRAM,
+        WHATSAPP,
+        TEXT
     }
 }

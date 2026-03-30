@@ -7,6 +7,8 @@ import com.konrad.konradquiz.exception.ExportException;
 import com.konrad.konradquiz.repository.AnswerRepository;
 import com.konrad.konradquiz.service.interfaces.IExportService;
 import jakarta.servlet.http.HttpServletResponse;
+import com.konrad.konradquiz.entity.Answer.SdtCategory;
+import com.konrad.konradquiz.util.SdtUtil;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -43,7 +45,6 @@ public class ExportServiceImpl implements IExportService {
                             "sex," +
                             "age," +
                             "region," +
-                            "experimentGroup," +
                             "completionTimeSeconds," +
                             "registeredAt," +
                             // questions table
@@ -60,7 +61,10 @@ public class ExportServiceImpl implements IExportService {
                             "questionOrder," +
                             "answeredAt," +
                             // computed
-                            "isCorrect"
+                            "isCorrect," +
+                            "sdtCategory" +
+                            "feedbackTiming," +
+                            "presentationFormat"
             );
 
             for (Answer answer : answers) {
@@ -72,18 +76,17 @@ public class ExportServiceImpl implements IExportService {
                                 (q.getCorrectAnswer() == Question.CorrectAnswer.FAKE && answer.getScore() < 50)
                 );
 
+                SdtCategory sdt = SdtUtil.classify(q.getCorrectAnswer(), answer.getScore());
+
                 writer.println(String.join(",",
-                        // ── Participant ──────────────────────────────────────
                         sanitize(p.getId()),
                         sanitize(p.getAlias()),
-                        sanitize(p.getEmail()),              // decrypted via @Convert ✅
+                        sanitize(p.getEmail()),
                         sanitize(p.getSex()),
                         sanitize(p.getAge()),
                         sanitize(p.getRegion()),
-                        sanitize(p.getExperimentGroup()),
                         sanitize(p.getCompletionTimeSeconds()),
                         sanitize(p.getRegisteredAt()),
-                        // ── Question ─────────────────────────────────────────
                         sanitize(q.getQuestionCode()),
                         sanitize(q.getConstructo()),
                         sanitize(q.getSubCategory()),
@@ -92,12 +95,13 @@ public class ExportServiceImpl implements IExportService {
                         sanitize(q.getCorrectAnswer()),
                         sanitize(q.getReferenceApa()),
                         sanitize(q.getSupportingQuote()),
-                        // ── Answer ───────────────────────────────────────────
                         sanitize(answer.getScore()),
                         sanitize(answer.getQuestionOrder()),
                         sanitize(answer.getAnsweredAt()),
-                        // ── Computed ─────────────────────────────────────────
-                        sanitize(isCorrect)
+                        sanitize(isCorrect),
+                        sanitize(sdt)  ,                        // ← added
+                        sanitize(p.getFeedbackTiming()),
+                        sanitize(p.getPresentationFormat())
                 ));
             }
 

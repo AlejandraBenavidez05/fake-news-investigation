@@ -46,7 +46,7 @@ class AnswerServiceTest {
         mockParticipant = Participant.builder()
                 .id(1L)
                 .alias("testuser")
-                .experimentGroup(Participant.ExperimentGroup.GROUP_A)
+                .feedbackTiming(Participant.FeedbackTiming.GROUP_A)
                 .build();
 
         // Build 4 valid answers matching 4 mock questions

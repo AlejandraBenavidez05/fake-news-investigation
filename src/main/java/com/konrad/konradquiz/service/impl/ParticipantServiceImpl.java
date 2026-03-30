@@ -17,11 +17,11 @@ import com.konrad.konradquiz.util.EncryptionUtil;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import java.security.SecureRandom;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+
 @Service
 @RequiredArgsConstructor
 @Transactional
@@ -32,7 +32,9 @@ public class ParticipantServiceImpl implements IParticipantService {
     private final ParticipantMapper participantMapper;
     private final QuestionMapper questionMapper;
     private final EncryptionUtil encryptionUtil;  // ← injected here only
-    private static final SecureRandom SECURE_RANDOM = new SecureRandom();
+
+    // Remove SecureRandom, inject GroupAssignmentService instead
+    private final GroupAssignmentService groupAssignmentService;
 
     @Override
     public ExperimentSessionDto register(ParticipantRequestDto dto) {
@@ -42,9 +44,7 @@ public class ParticipantServiceImpl implements IParticipantService {
             throw new BusinessException("A participant with this email already exists.");
         }
 
-        Participant.ExperimentGroup group = SECURE_RANDOM.nextBoolean()
-                ? Participant.ExperimentGroup.GROUP_A
-                : Participant.ExperimentGroup.GROUP_B;
+        GroupAssignmentService.AssignedGroup assignment = groupAssignmentService.assignGroup();
 
         Participant participant = Participant.builder()
                 .alias(dto.getAlias())
@@ -53,7 +53,8 @@ public class ParticipantServiceImpl implements IParticipantService {
                 .sex(dto.getSex())
                 .age(dto.getAge())
                 .region(dto.getRegion())
-                .experimentGroup(group)
+                .feedbackTiming(assignment.feedbackTiming())
+                .presentationFormat(assignment.presentationFormat())
                 .build();
 
         Participant saved = participantRepository.save(participant); // ← capture saved
@@ -69,7 +70,8 @@ public class ParticipantServiceImpl implements IParticipantService {
         return ExperimentSessionDto.builder()
                 .participantId(saved.getId())
                 .alias(saved.getAlias())
-                .experimentGroup(saved.getExperimentGroup())
+                .feedbackTiming(saved.getFeedbackTiming())
+                .presentationFormat(saved.getPresentationFormat())
                 .questions(sessionQuestions)
                 .build();
     }

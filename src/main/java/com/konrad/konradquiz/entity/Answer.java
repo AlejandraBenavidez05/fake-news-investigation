@@ -70,4 +70,12 @@ public class Answer {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "question_code", nullable = false)
     private Question question;
+
+    public enum SdtCategory {
+        HIT,              // (A) News is FAKE + participant said FAKE ✅
+        MISS,             // (C) News is FAKE + participant said REAL ❌
+        FALSE_ALARM,      // (B) News is REAL + participant said FAKE ❌
+        CORRECT_RESPONSE, // (D) News is REAL + participant said REAL ✅
+        UNSURE            // score exactly 50 — participant couldn't decide
+    }
 }

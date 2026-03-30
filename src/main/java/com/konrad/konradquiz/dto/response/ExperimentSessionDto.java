@@ -1,6 +1,7 @@
 package com.konrad.konradquiz.dto.response;
 
-import com.konrad.konradquiz.entity.Participant.ExperimentGroup;
+import com.konrad.konradquiz.entity.Participant.FeedbackTiming;
+import com.konrad.konradquiz.entity.Participant.PresentationFormat;
 import lombok.Builder;
 import lombok.Data;
 import java.util.List;
@@ -11,6 +12,7 @@ import java.util.List;
 public class ExperimentSessionDto {
     private Long participantId;
     private String alias;
-    private ExperimentGroup experimentGroup;
     private List<QuestionSessionDto> questions;  // includes correctAnswer + references
+    private FeedbackTiming feedbackTiming;
+    private PresentationFormat presentationFormat;
 }

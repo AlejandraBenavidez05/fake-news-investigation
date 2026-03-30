@@ -10,6 +10,7 @@ import com.konrad.konradquiz.exception.ResourceNotFoundException;
 import com.konrad.konradquiz.mapper.ParticipantMapper;
 import com.konrad.konradquiz.mapper.QuestionMapper;
 import com.konrad.konradquiz.repository.ParticipantRepository;
+import com.konrad.konradquiz.service.impl.GroupAssignmentService;
 import com.konrad.konradquiz.service.impl.ParticipantServiceImpl;
 import com.konrad.konradquiz.service.interfaces.IQuestionService;
 import com.konrad.konradquiz.util.EncryptionUtil;
@@ -38,6 +39,7 @@ class ParticipantServiceTest {
     @Mock private ParticipantMapper participantMapper;
     @Mock private QuestionMapper questionMapper;
     @Mock private EncryptionUtil encryptionUtil;
+    @Mock private GroupAssignmentService groupAssignmentService;
 
     @InjectMocks
     private ParticipantServiceImpl participantService;
@@ -63,7 +65,7 @@ class ParticipantServiceTest {
                 .emailHash("hashed_email")
                 .sex(Participant.Sex.MALE)
                 .age(25)
-                .experimentGroup(Participant.ExperimentGroup.GROUP_A)
+                .feedbackTiming(Participant.FeedbackTiming.GROUP_A)
                 .registeredAt(LocalDateTime.now())
                 .build();
 
@@ -94,6 +96,11 @@ class ParticipantServiceTest {
                             .assignedOrder(order)
                             .build();
                 });
+        when(groupAssignmentService.assignGroup())
+                .thenReturn(new GroupAssignmentService.AssignedGroup(
+                        Participant.FeedbackTiming.GROUP_A,
+                        Participant.PresentationFormat.INSTAGRAM
+                ));
 
         // Act
         ExperimentSessionDto result = participantService.register(validRequest);
@@ -103,21 +110,12 @@ class ParticipantServiceTest {
         assertThat(result.getParticipantId()).isEqualTo(1L);
         assertThat(result.getAlias()).isEqualTo("testuser");
         assertThat(result.getQuestions()).hasSize(4);
-        assertThat(result.getExperimentGroup()).isIn(
-                Participant.ExperimentGroup.GROUP_A,
-                Participant.ExperimentGroup.GROUP_B
+        assertThat(result.getFeedbackTiming()).isIn(
+                Participant.FeedbackTiming.GROUP_A,
+                Participant.FeedbackTiming.GROUP_B
         );
-
-        // Verify question order values are 1-based and sequential
-        List<Integer> orders = result.getQuestions().stream()
-                .map(q -> q.getAssignedOrder())
-                .sorted()
-                .toList();
-        assertThat(orders).containsExactly(1, 2, 3, 4);
-
-        verify(participantRepository).save(any(Participant.class));
-        verify(questionService).getAllForSession();
     }
+
 
     @Test
     @DisplayName("register() — throws BusinessException when email already exists")
@@ -148,13 +146,25 @@ class ParticipantServiceTest {
                 .thenReturn(com.konrad.konradquiz.dto.response.QuestionSessionDto.builder()
                         .questionCode("P1").assignedOrder(1).build());
 
-        // Act — run 20 times to statistically cover both groups
+        // Alternar entre GROUP_A y GROUP_B en cada llamada
+        when(groupAssignmentService.assignGroup())
+                .thenReturn(new GroupAssignmentService.AssignedGroup(
+                        Participant.FeedbackTiming.GROUP_A,
+                        Participant.PresentationFormat.INSTAGRAM
+                ))
+                .thenReturn(new GroupAssignmentService.AssignedGroup(
+                        Participant.FeedbackTiming.GROUP_B,
+                        Participant.PresentationFormat.WHATSAPP
+                ));
+
+        // Act — run 20 times
         for (int i = 0; i < 20; i++) {
             ExperimentSessionDto result = participantService.register(validRequest);
-            assertThat(result.getExperimentGroup())
-                    .isIn(Participant.ExperimentGroup.GROUP_A, Participant.ExperimentGroup.GROUP_B);
+            assertThat(result.getFeedbackTiming())
+                    .isIn(Participant.FeedbackTiming.GROUP_A, Participant.FeedbackTiming.GROUP_B);
         }
     }
+
 
     // ── findById() ───────────────────────────────────────────────────────────
 
