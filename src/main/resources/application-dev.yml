@@ -11,7 +11,7 @@
 
   app:
     cors:
-      allowed-origins: http://localhost:3000,http://localhost:5173  # React default ports
+      allowed-origins: http://localhost:3000,http://localhost:4200,http://localhost:5173  # React + Angular + Vite ports
     encryption:
       secret-key: "dev-secret-32chars-change!!"    # exactly 32 chars for AES-256
     admin:

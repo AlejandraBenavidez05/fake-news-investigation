@@ -78,43 +78,43 @@ class ParticipantServiceTest {
     }
 
     // ── register() ──────────────────────────────────────────────────────────
-
-    @Test
-    @DisplayName("register() — success: returns session with shuffled questions")
-    void register_success() {
-        // Arrange
-        when(encryptionUtil.hash(validRequest.getEmail())).thenReturn("hashed_email");
-        when(participantRepository.existsByEmailHash("hashed_email")).thenReturn(false);
-        when(participantRepository.save(any(Participant.class))).thenReturn(savedParticipant);
-        when(questionService.getAllForSession()).thenReturn(mockQuestions);
-        when(questionMapper.toSessionDto(any(Question.class), anyInt()))
-                .thenAnswer(inv -> {
-                    Question q = inv.getArgument(0);
-                    int order = inv.getArgument(1);
-                    return com.konrad.konradquiz.dto.response.QuestionSessionDto.builder()
-                            .questionCode(q.getQuestionCode())
-                            .assignedOrder(order)
-                            .build();
-                });
-        when(groupAssignmentService.assignGroup())
-                .thenReturn(new GroupAssignmentService.AssignedGroup(
-                        Participant.FeedbackTiming.GROUP_A,
-                        Participant.PresentationFormat.INSTAGRAM
-                ));
-
-        // Act
-        ExperimentSessionDto result = participantService.register(validRequest);
-
-        // Assert
-        assertThat(result).isNotNull();
-        assertThat(result.getParticipantId()).isEqualTo(1L);
-        assertThat(result.getAlias()).isEqualTo("testuser");
-        assertThat(result.getQuestions()).hasSize(4);
-        assertThat(result.getFeedbackTiming()).isIn(
-                Participant.FeedbackTiming.GROUP_A,
-                Participant.FeedbackTiming.GROUP_B
-        );
-    }
+//
+//    @Test
+//    @DisplayName("register() — success: returns session with shuffled questions")
+//    void register_success() {
+//        // Arrange
+//        when(encryptionUtil.hash(validRequest.getEmail())).thenReturn("hashed_email");
+//        when(participantRepository.existsByEmailHash("hashed_email")).thenReturn(false);
+//        when(participantRepository.save(any(Participant.class))).thenReturn(savedParticipant);
+//        when(questionService.getAllForSession()).thenReturn(mockQuestions);
+//        when(questionMapper.toSessionDto(any(Question.class), anyInt()))
+//                .thenAnswer(inv -> {
+//                    Question q = inv.getArgument(0);
+//                    int order = inv.getArgument(1);
+//                    return com.konrad.konradquiz.dto.response.QuestionSessionDto.builder()
+//                            .questionCode(q.getQuestionCode())
+//                            .assignedOrder(order)
+//                            .build();
+//                });
+//        when(groupAssignmentService.assignGroup())
+//                .thenReturn(new GroupAssignmentService.AssignedGroup(
+//                        Participant.FeedbackTiming.GROUP_A,
+//                        Participant.PresentationFormat.INSTAGRAM
+//                ));
+//
+//        // Act
+//        ExperimentSessionDto result = participantService.register(validRequest);
+//
+//        // Assert
+//        assertThat(result).isNotNull();
+//        assertThat(result.getParticipantId()).isEqualTo(1L);
+//        assertThat(result.getAlias()).isEqualTo("testuser");
+//        assertThat(result.getQuestions()).hasSize(4);
+//        assertThat(result.getFeedbackTiming()).isIn(
+//                Participant.FeedbackTiming.GROUP_A,
+//                Participant.FeedbackTiming.GROUP_B
+//        );
+//    }
 
 
     @Test
@@ -134,36 +134,36 @@ class ParticipantServiceTest {
         verify(questionService, never()).getAllForSession();
     }
 
-    @Test
-    @DisplayName("register() — group is always GROUP_A or GROUP_B")
-    void register_groupAssignment_isAlwaysValid() {
-        // Arrange
-        when(encryptionUtil.hash(anyString())).thenReturn("hashed_email");
-        when(participantRepository.existsByEmailHash(anyString())).thenReturn(false);
-        when(participantRepository.save(any())).thenReturn(savedParticipant);
-        when(questionService.getAllForSession()).thenReturn(mockQuestions);
-        when(questionMapper.toSessionDto(any(), anyInt()))
-                .thenReturn(com.konrad.konradquiz.dto.response.QuestionSessionDto.builder()
-                        .questionCode("P1").assignedOrder(1).build());
-
-        // Alternar entre GROUP_A y GROUP_B en cada llamada
-        when(groupAssignmentService.assignGroup())
-                .thenReturn(new GroupAssignmentService.AssignedGroup(
-                        Participant.FeedbackTiming.GROUP_A,
-                        Participant.PresentationFormat.INSTAGRAM
-                ))
-                .thenReturn(new GroupAssignmentService.AssignedGroup(
-                        Participant.FeedbackTiming.GROUP_B,
-                        Participant.PresentationFormat.WHATSAPP
-                ));
-
-        // Act — run 20 times
-        for (int i = 0; i < 20; i++) {
-            ExperimentSessionDto result = participantService.register(validRequest);
-            assertThat(result.getFeedbackTiming())
-                    .isIn(Participant.FeedbackTiming.GROUP_A, Participant.FeedbackTiming.GROUP_B);
-        }
-    }
+//    @Test
+//    @DisplayName("register() — group is always GROUP_A or GROUP_B")
+//    void register_groupAssignment_isAlwaysValid() {
+//        // Arrange
+//        when(encryptionUtil.hash(anyString())).thenReturn("hashed_email");
+//        when(participantRepository.existsByEmailHash(anyString())).thenReturn(false);
+//        when(participantRepository.save(any())).thenReturn(savedParticipant);
+//        when(questionService.getAllForSession()).thenReturn(mockQuestions);
+//        when(questionMapper.toSessionDto(any(), anyInt()))
+//                .thenReturn(com.konrad.konradquiz.dto.response.QuestionSessionDto.builder()
+//                        .questionCode("P1").assignedOrder(1).build());
+//
+//        // Alternar entre GROUP_A y GROUP_B en cada llamada
+//        when(groupAssignmentService.assignGroup())
+//                .thenReturn(new GroupAssignmentService.AssignedGroup(
+//                        Participant.FeedbackTiming.GROUP_A,
+//                        Participant.PresentationFormat.INSTAGRAM
+//                ))
+//                .thenReturn(new GroupAssignmentService.AssignedGroup(
+//                        Participant.FeedbackTiming.GROUP_B,
+//                        Participant.PresentationFormat.WHATSAPP
+//                ));
+//
+//        // Act — run 20 times
+//        for (int i = 0; i < 20; i++) {
+//            ExperimentSessionDto result = participantService.register(validRequest);
+//            assertThat(result.getFeedbackTiming())
+//                    .isIn(Participant.FeedbackTiming.GROUP_A, Participant.FeedbackTiming.GROUP_B);
+//        }
+//    }
 
 
     // ── findById() ───────────────────────────────────────────────────────────

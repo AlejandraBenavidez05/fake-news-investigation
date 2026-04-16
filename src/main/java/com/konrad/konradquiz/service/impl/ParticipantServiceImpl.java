@@ -35,15 +35,28 @@ public class ParticipantServiceImpl implements IParticipantService {
 
     // Remove SecureRandom, inject GroupAssignmentService instead
     private final GroupAssignmentService groupAssignmentService;
-
     @Override
     public ExperimentSessionDto register(ParticipantRequestDto dto) {
 
+        // ── Consent validation — must all be true ────────────────────────────
+        if (!Boolean.TRUE.equals(dto.getConsentAcademicPurpose())      ||
+                !Boolean.TRUE.equals(dto.getConsentParticipationProcess()) ||
+                !Boolean.TRUE.equals(dto.getConsentDataProcessing())       ||
+                !Boolean.TRUE.equals(dto.getConsentNoRisk())               ||
+                !Boolean.TRUE.equals(dto.getConsentNoPayment())            ||
+                !Boolean.TRUE.equals(dto.getConsentProjectInfo())) {
+            throw new BusinessException(
+                    "All consent declarations must be accepted to participate in this study."
+            );
+        }
+
+        // ── Duplicate check ──────────────────────────────────────────────────
         String emailHash = encryptionUtil.hash(dto.getEmail());
         if (participantRepository.existsByEmailHash(emailHash)) {
             throw new BusinessException("A participant with this email already exists.");
         }
 
+        // ── Group assignment ─────────────────────────────────────────────────
         GroupAssignmentService.AssignedGroup assignment = groupAssignmentService.assignGroup();
 
         Participant participant = Participant.builder()
@@ -55,16 +68,30 @@ public class ParticipantServiceImpl implements IParticipantService {
                 .region(dto.getRegion())
                 .feedbackTiming(assignment.feedbackTiming())
                 .presentationFormat(assignment.presentationFormat())
+                .consentAcademicPurpose(dto.getConsentAcademicPurpose())
+                .consentParticipationProcess(dto.getConsentParticipationProcess())
+                .consentDataProcessing(dto.getConsentDataProcessing())
+                .consentNoRisk(dto.getConsentNoRisk())
+                .consentNoPayment(dto.getConsentNoPayment())
+                .consentProjectInfo(dto.getConsentProjectInfo())
                 .build();
 
-        Participant saved = participantRepository.save(participant); // ← capture saved
+        Participant saved = participantRepository.save(participant);
 
+        // ── Build session — split by question type ───────────────────────────
         List<Question> allQuestions = new ArrayList<>(questionService.getAllForSession());
         Collections.shuffle(allQuestions);
 
         List<QuestionSessionDto> sessionQuestions = new ArrayList<>();
         for (int i = 0; i < allQuestions.size(); i++) {
-            sessionQuestions.add(questionMapper.toSessionDto(allQuestions.get(i), i + 1));
+            Question q = allQuestions.get(i);
+
+            // Profile questions always TEXT — news questions use participant's assigned format
+            Participant.PresentationFormat format = q.getQuestionType() == Question.QuestionType.PROFILE
+                    ? Participant.PresentationFormat.TEXT
+                    : saved.getPresentationFormat();
+
+            sessionQuestions.add(questionMapper.toSessionDto(q, i + 1, format));
         }
 
         return ExperimentSessionDto.builder()

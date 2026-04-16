@@ -25,8 +25,8 @@ import java.util.List;
 @Entity
 @Table(name = "participants",
         indexes = {
-                // Index on emailHash — NOT on email (email is encrypted, can't be indexed)
-                @Index(name = "idx_participant_email_hash", columnList = "email_hash", unique = true)
+                @Index(name = "idx_participant_email_hash", columnList = "email_hash", unique = true),
+                @Index(name = "idx_participant_group", columnList = "feedback_timing, presentation_format")
         }
 )
 @Data
@@ -39,55 +39,66 @@ public class Participant {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false, length = 100)
+    @Column(name = "alias", nullable = false, length = 100)
     private String alias;
 
-    @Convert(converter = StringEncryptionConverter.class)  // ← Jasypt encrypts/decrypts
-    @Column(nullable = false, length = 500)                // ← 500 because encrypted value is longer
+    @Convert(converter = StringEncryptionConverter.class)
+    @Column(name = "email", nullable = false, length = 500)
     private String email;
 
     @Column(name = "email_hash", nullable = false, length = 64, unique = true)
-    private String emailHash;                              // ← SHA-256 hash for duplicate check
+    private String emailHash;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 10)
+    @Column(name = "sex", nullable = false, length = 10)
     private Sex sex;
 
-    @Column(nullable = false)
+    @Column(name = "age", nullable = false)
     private Integer age;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 20)
-    private FeedbackTiming feedbackTiming;      // GROUP_A or GROUP_B
+    @Column(name = "feedback_timing", nullable = false, length = 20)
+    private FeedbackTiming feedbackTiming;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 20)
-    private PresentationFormat presentationFormat;  // INSTAGRAM, WHATSAPP, TEXT
+    @Column(name = "presentation_format", nullable = false, length = 20)
+    private PresentationFormat presentationFormat;
 
     @CreationTimestamp
-    @Column(nullable = false, updatable = false)
+    @Column(name = "registered_at", nullable = false, updatable = false)
     private LocalDateTime registeredAt;
 
     @Builder.Default
     @OneToMany(mappedBy = "participant", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Answer> answers = new ArrayList<>();
 
-    @Column(nullable = false, length = 100)
-    private String region;                  // e.g. "Bogotá", "Cali", "Madrid"
+    @Column(name = "region", nullable = false, length = 100)
+    private String region;
 
-    @Column
-    private Long completionTimeSeconds;     // null until answers submitted, then set
+    @Column(name = "completion_time_seconds")
+    private Long completionTimeSeconds;
+
+    @Column(name = "consent_academic_purpose", nullable = false)
+    private Boolean consentAcademicPurpose;
+
+    @Column(name = "consent_participation_process", nullable = false)
+    private Boolean consentParticipationProcess;
+
+    @Column(name = "consent_data_processing", nullable = false)
+    private Boolean consentDataProcessing;
+
+    @Column(name = "consent_no_risk", nullable = false)
+    private Boolean consentNoRisk;
+
+    @Column(name = "consent_no_payment", nullable = false)
+    private Boolean consentNoPayment;
+
+    @Column(name = "consent_project_info", nullable = false)
+    private Boolean consentProjectInfo;
 
     public enum Sex { MALE, FEMALE, OTHER }
 
-    public enum FeedbackTiming {
-        GROUP_A,  // feedback after EACH question
-        GROUP_B   // feedback only AFTER ALL questions
-    }
+    public enum FeedbackTiming { GROUP_A, GROUP_B }
 
-    public enum PresentationFormat {
-        INSTAGRAM,
-        WHATSAPP,
-        TEXT
-    }
+    public enum PresentationFormat { INSTAGRAM, WHATSAPP, TEXT }
 }

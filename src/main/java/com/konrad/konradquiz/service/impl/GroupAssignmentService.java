@@ -5,7 +5,10 @@ import com.konrad.konradquiz.entity.Participant.PresentationFormat;
 import com.konrad.konradquiz.repository.ParticipantRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
-import java.util.Objects;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.Comparator;
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -13,45 +16,45 @@ public class GroupAssignmentService {
 
     private final ParticipantRepository participantRepository;
 
-    // All 6 possible combinations
-    private static final FeedbackTiming[] TIMINGS = {
-            FeedbackTiming.GROUP_A, FeedbackTiming.GROUP_A, FeedbackTiming.GROUP_A,
-            FeedbackTiming.GROUP_B, FeedbackTiming.GROUP_B, FeedbackTiming.GROUP_B
-    };
-
-    private static final PresentationFormat[] FORMATS = {
-            PresentationFormat.INSTAGRAM,
-            PresentationFormat.WHATSAPP,
-            PresentationFormat.TEXT,
-            PresentationFormat.INSTAGRAM,
-            PresentationFormat.WHATSAPP,
-            PresentationFormat.TEXT
-    };
+    // All 6 combinations — defined once, reused across calls
+    private static final List<AssignedGroup> ALL_GROUPS = List.of(
+            new AssignedGroup(FeedbackTiming.GROUP_A, PresentationFormat.INSTAGRAM),
+            new AssignedGroup(FeedbackTiming.GROUP_A, PresentationFormat.WHATSAPP),
+            new AssignedGroup(FeedbackTiming.GROUP_A, PresentationFormat.TEXT),
+            new AssignedGroup(FeedbackTiming.GROUP_B, PresentationFormat.INSTAGRAM),
+            new AssignedGroup(FeedbackTiming.GROUP_B, PresentationFormat.WHATSAPP),
+            new AssignedGroup(FeedbackTiming.GROUP_B, PresentationFormat.TEXT)
+    );
 
     /**
-     * Assigns the group with the fewest current participants.
+     * Assigns the group with the fewest current participants — single DB query.
      * Guarantees balanced distribution across all 6 groups.
      */
+    @Transactional(readOnly = true)
     public AssignedGroup assignGroup() {
-        Objects.requireNonNull(participantRepository, "ParticipantRepository must not be null");
+        // Single query returns counts for all 6 groups at once
+        List<GroupCount> counts = participantRepository.countByGroup();
 
-        int minCount = Integer.MAX_VALUE;
-        int assignedIndex = 0;
-
-        for (int i = 0; i < TIMINGS.length; i++) {
-            FeedbackTiming timing = Objects.requireNonNull(TIMINGS[i], "FeedbackTiming must not be null");
-            PresentationFormat format = Objects.requireNonNull(FORMATS[i], "PresentationFormat must not be null");
-
-            long count = participantRepository.countByFeedbackTimingAndPresentationFormat(timing, format);
-
-            if (count < minCount) {
-                minCount = (int) count;
-                assignedIndex = i;
-            }
-        }
-
-        return new AssignedGroup(TIMINGS[assignedIndex], FORMATS[assignedIndex]);
+        return ALL_GROUPS.stream()
+                .min(Comparator.comparingLong(group ->
+                        counts.stream()
+                                .filter(c -> c.feedbackTiming() == group.feedbackTiming()
+                                        && c.presentationFormat() == group.presentationFormat())
+                                .mapToLong(GroupCount::count)
+                                .findFirst()
+                                .orElse(0L)   // group has 0 participants yet
+                ))
+                .orElseThrow();   // can never be empty — ALL_GROUPS is hardcoded
     }
 
-    public record AssignedGroup(FeedbackTiming feedbackTiming, PresentationFormat presentationFormat) {}
+    public record AssignedGroup(
+            FeedbackTiming feedbackTiming,
+            PresentationFormat presentationFormat
+    ) {}
+
+    public record GroupCount(
+            FeedbackTiming feedbackTiming,
+            PresentationFormat presentationFormat,
+            long count
+    ) {}
 }

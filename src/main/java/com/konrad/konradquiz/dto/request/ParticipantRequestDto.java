@@ -31,4 +31,22 @@ public class ParticipantRequestDto {
     @NotBlank
     @Size(min = 2, max = 100)
     private String region;
+
+    @NotNull
+    private Boolean consentAcademicPurpose;
+
+    @NotNull
+    private Boolean consentParticipationProcess;
+
+    @NotNull
+    private Boolean consentDataProcessing;
+
+    @NotNull
+    private Boolean consentNoRisk;
+
+    @NotNull
+    private Boolean consentNoPayment;
+
+    @NotNull
+    private Boolean consentProjectInfo;
 }

@@ -36,37 +36,20 @@ public class ExportServiceImpl implements IExportService {
             List<Answer> answers = answerRepository.findAllForExport();
             PrintWriter writer = response.getWriter();
 
-            // ── All columns from all three tables ────────────────────────────
             writer.println(
-                    // participants table
-                    "participantId," +
-                            "alias," +
-                            "email," +
-                            "sex," +
-                            "age," +
-                            "region," +
-                            "completionTimeSeconds," +
-                            "registeredAt," +
-                            // questions table
-                            "questionCode," +
-                            "constructo," +
-                            "subCategory," +
-                            "subCategory2," +
-                            "itemText," +
-                            "correctAnswer," +
-                            "referenceApa," +
-                            "supportingQuote," +
-                            // answers table
-                            "score," +
-                            "questionOrder," +
-                            "answeredAt," +
-                            // computed
-                            "isCorrect," +
-                            "sdtCategory" +
-                            "feedbackTiming," +
-                            "presentationFormat"
+                    // Participant
+                    "participantId,alias,email,sex,age,region,feedbackTiming,presentationFormat," +
+                            "completionTimeSeconds,registeredAt," +
+                            // Consents
+                            "consentAcademicPurpose,consentParticipationProcess,consentDataProcessing," +
+                            "consentNoRisk,consentNoPayment,consentProjectInfo," +
+                            // Question
+                            "questionCode,questionType,constructo,subCategory,subCategory2,itemText," +
+                            "correctAnswer,referenceApa,supportingQuote,phase,category,novelty," +
+                            "sourceVerificationUrl,factCheckUrl,originName,fileName,scaleOptions," +
+                            // Answer
+                            "score,questionOrder,answeredAt,isCorrect,sdtCategory"
             );
-
             for (Answer answer : answers) {
                 Participant p = answer.getParticipant();
                 Question q   = answer.getQuestion();
@@ -95,13 +78,27 @@ public class ExportServiceImpl implements IExportService {
                         sanitize(q.getCorrectAnswer()),
                         sanitize(q.getReferenceApa()),
                         sanitize(q.getSupportingQuote()),
+                        sanitize(q.getPhase()),
+                        sanitize(q.getCategory()),
+                        sanitize(q.getNovelty()),
+                        sanitize(q.getSourceVerificationUrl()),
+                        sanitize(q.getFactCheckUrl()),
+                        sanitize(q.getOriginName()),
+                        sanitize(q.getFileName()),
+                        sanitize(q.getScaleOptions()),
                         sanitize(answer.getScore()),
                         sanitize(answer.getQuestionOrder()),
                         sanitize(answer.getAnsweredAt()),
                         sanitize(isCorrect),
-                        sanitize(sdt)  ,                        // ← added
+                        sanitize(sdt)  ,
                         sanitize(p.getFeedbackTiming()),
-                        sanitize(p.getPresentationFormat())
+                        sanitize(p.getPresentationFormat()),
+                        sanitize(p.getConsentAcademicPurpose()),
+                        sanitize(p.getConsentParticipationProcess()),
+                        sanitize(p.getConsentDataProcessing()),
+                        sanitize(p.getConsentNoRisk()),
+                        sanitize(p.getConsentNoPayment()),
+                        sanitize(p.getConsentProjectInfo())
                 ));
             }
 
