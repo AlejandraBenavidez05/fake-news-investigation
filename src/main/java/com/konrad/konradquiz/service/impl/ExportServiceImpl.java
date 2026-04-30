@@ -1,14 +1,14 @@
 package com.konrad.konradquiz.service.impl;
 
 import com.konrad.konradquiz.entity.Answer;
+import com.konrad.konradquiz.entity.Answer.SdtCategory;
 import com.konrad.konradquiz.entity.Participant;
 import com.konrad.konradquiz.entity.Question;
 import com.konrad.konradquiz.exception.ExportException;
 import com.konrad.konradquiz.repository.AnswerRepository;
 import com.konrad.konradquiz.service.interfaces.IExportService;
-import jakarta.servlet.http.HttpServletResponse;
-import com.konrad.konradquiz.entity.Answer.SdtCategory;
 import com.konrad.konradquiz.util.SdtUtil;
+import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -36,23 +36,58 @@ public class ExportServiceImpl implements IExportService {
             List<Answer> answers = answerRepository.findAllForExport();
             PrintWriter writer = response.getWriter();
 
+            // ── Header — order must match row exactly ────────────────────────
             writer.println(
                     // Participant
-                    "participantId,alias,email,sex,age,region,feedbackTiming,presentationFormat," +
-                            "completionTimeSeconds,registeredAt," +
+                    "participantId," +
+                            "alias," +
+                            "email," +
+                            "sex," +
+                            "age," +
+                            "region," +
+                            "feedbackTiming," +
+                            "presentationFormat," +
+                            "newsSet," +
+                            "completionTimeSeconds," +
+                            "registeredAt," +
                             // Consents
-                            "consentAcademicPurpose,consentParticipationProcess,consentDataProcessing," +
-                            "consentNoRisk,consentNoPayment,consentProjectInfo," +
+                            "consentAcademicPurpose," +
+                            "consentParticipationProcess," +
+                            "consentDataProcessing," +
+                            "consentNoRisk," +
+                            "consentNoPayment," +
+                            "consentProjectInfo," +
                             // Question
-                            "questionCode,questionType,constructo,subCategory,subCategory2,itemText," +
-                            "correctAnswer,referenceApa,supportingQuote,phase,category,novelty," +
-                            "sourceVerificationUrl,factCheckUrl,originName,fileName,scaleOptions," +
+                            "questionCode," +
+                            "questionType," +
+                            "constructo," +
+                            "subCategory," +
+                            "subCategory2," +
+                            "itemText," +
+                            "correctAnswer," +
+                            "referenceApa," +
+                            "supportingQuote," +
+                            "phase," +
+                            "category," +
+                            "novelty," +
+                            "sourceVerificationUrl," +
+                            "factCheckUrl," +
+                            "originName," +
+                            "fileName," +
+                            "scaleOptions," +
                             // Answer
-                            "score,questionOrder,answeredAt,isCorrect,sdtCategory"
+                            "score," +
+                            "questionOrder," +
+                            "answeredAt," +
+                            "answerType," +
+                            // Computed
+                            "isCorrect," +
+                            "sdtCategory"
             );
+
             for (Answer answer : answers) {
                 Participant p = answer.getParticipant();
-                Question q   = answer.getQuestion();
+                Question    q = answer.getQuestion();
 
                 boolean isCorrect = q.getCorrectAnswer() != null && (
                         (q.getCorrectAnswer() == Question.CorrectAnswer.REAL && answer.getScore() >= 50) ||
@@ -62,15 +97,28 @@ public class ExportServiceImpl implements IExportService {
                 SdtCategory sdt = SdtUtil.classify(q.getCorrectAnswer(), answer.getScore());
 
                 writer.println(String.join(",",
+                        // ── Participant ──────────────────────────────────────
                         sanitize(p.getId()),
                         sanitize(p.getAlias()),
                         sanitize(p.getEmail()),
                         sanitize(p.getSex()),
                         sanitize(p.getAge()),
                         sanitize(p.getRegion()),
+                        sanitize(p.getFeedbackTiming()),
+                        sanitize(p.getPresentationFormat()),
+                        sanitize(p.getNewsSet()),
                         sanitize(p.getCompletionTimeSeconds()),
                         sanitize(p.getRegisteredAt()),
+                        // ── Consents ─────────────────────────────────────────
+                        sanitize(p.getConsentAcademicPurpose()),
+                        sanitize(p.getConsentParticipationProcess()),
+                        sanitize(p.getConsentDataProcessing()),
+                        sanitize(p.getConsentNoRisk()),
+                        sanitize(p.getConsentNoPayment()),
+                        sanitize(p.getConsentProjectInfo()),
+                        // ── Question ─────────────────────────────────────────
                         sanitize(q.getQuestionCode()),
+                        sanitize(q.getQuestionType()),
                         sanitize(q.getConstructo()),
                         sanitize(q.getSubCategory()),
                         sanitize(q.getSubCategory2()),
@@ -86,19 +134,14 @@ public class ExportServiceImpl implements IExportService {
                         sanitize(q.getOriginName()),
                         sanitize(q.getFileName()),
                         sanitize(q.getScaleOptions()),
+                        // ── Answer ───────────────────────────────────────────
                         sanitize(answer.getScore()),
                         sanitize(answer.getQuestionOrder()),
                         sanitize(answer.getAnsweredAt()),
+                        sanitize(answer.getAnswerType()),
+                        // ── Computed ─────────────────────────────────────────
                         sanitize(isCorrect),
-                        sanitize(sdt)  ,
-                        sanitize(p.getFeedbackTiming()),
-                        sanitize(p.getPresentationFormat()),
-                        sanitize(p.getConsentAcademicPurpose()),
-                        sanitize(p.getConsentParticipationProcess()),
-                        sanitize(p.getConsentDataProcessing()),
-                        sanitize(p.getConsentNoRisk()),
-                        sanitize(p.getConsentNoPayment()),
-                        sanitize(p.getConsentProjectInfo())
+                        sanitize(sdt)
                 ));
             }
 

@@ -32,66 +32,117 @@ class QuestionServiceTest {
     @InjectMocks
     private QuestionServiceImpl questionService;
 
-    private Question mockQuestion;
+    private Question mockProfileQuestion;
+    private Question mockNewsQuestion;
 
     @BeforeEach
     void setUp() {
-        mockQuestion = Question.builder()
+        mockProfileQuestion = Question.builder()
                 .questionCode("P1")
                 .constructo("Creador")
                 .subCategory("Humano Real")
                 .subCategory2("Atributos de Fuente")
                 .itemText("Valoro el contenido de una información por encima del prestigio")
-                .correctAnswer(null) // not set yet — like real data
+                .questionType(Question.QuestionType.PROFILE)
+                .correctAnswer(null)
                 .referenceApa("Zhang, X., & Ghorbani, A. A. (2020)")
                 .supportingQuote("Users are more likely to trust and share news")
+                .scaleOptions("nada,poco,bastante,mucho")
+                .build();
+
+        mockNewsQuestion = Question.builder()
+                .questionCode("1_exp1")
+                .constructo("Fraude")
+                .itemText("Alertan del fraude de instalar una app...")
+                .questionType(Question.QuestionType.NEWS)
+                .newsSet(Question.NewsSet.TECHNOLOGY)
+                .correctAnswer(Question.CorrectAnswer.REAL)
+                .phase("DETECCION")
                 .build();
     }
 
-    // ── getAllForSession() ───────────────────────────────────────────────────
+    // ── getAllProfileQuestions() ──────────────────────────────────────────────
 
     @Test
-    @DisplayName("getAllForSession() — returns all questions from repository")
-    void getAllForSession_returnsAllQuestions() {
-        // Arrange
-        List<Question> expected = List.of(
-                mockQuestion,
-                Question.builder().questionCode("P2").constructo("Contenido").itemText("Q2").build()
-        );
-        when(questionRepository.findAll()).thenReturn(expected);
+    @DisplayName("getAllProfileQuestions() — returns only PROFILE questions")
+    void getAllProfileQuestions_returnsOnlyProfile() {
+        when(questionRepository.findByQuestionType(Question.QuestionType.PROFILE))
+                .thenReturn(List.of(mockProfileQuestion));
 
-        // Act
-        List<Question> result = questionService.getAllForSession();
+        List<Question> result = questionService.getAllProfileQuestions();
 
-        // Assert
-        assertThat(result).hasSize(2);
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).getQuestionType()).isEqualTo(Question.QuestionType.PROFILE);
         assertThat(result.get(0).getQuestionCode()).isEqualTo("P1");
-        assertThat(result.get(1).getQuestionCode()).isEqualTo("P2");
-        verify(questionRepository).findAll();
+        verify(questionRepository).findByQuestionType(Question.QuestionType.PROFILE);
     }
 
     @Test
-    @DisplayName("getAllForSession() — returns empty list when no questions exist")
-    void getAllForSession_empty() {
-        when(questionRepository.findAll()).thenReturn(List.of());
+    @DisplayName("getAllProfileQuestions() — returns empty list when none exist")
+    void getAllProfileQuestions_empty() {
+        when(questionRepository.findByQuestionType(Question.QuestionType.PROFILE))
+                .thenReturn(List.of());
 
-        List<Question> result = questionService.getAllForSession();
+        List<Question> result = questionService.getAllProfileQuestions();
 
         assertThat(result).isEmpty();
+    }
+
+    // ── getNewsQuestionsForSet() ─────────────────────────────────────────────
+
+    @Test
+    @DisplayName("getNewsQuestionsForSet() — returns 12 questions for TECHNOLOGY set")
+    void getNewsQuestionsForSet_technologyReturns12() {
+        List<Question> tech12 = buildNewsList(12, Question.NewsSet.TECHNOLOGY);
+        when(questionRepository.findByQuestionTypeAndNewsSet(
+                Question.QuestionType.NEWS, Question.NewsSet.TECHNOLOGY))
+                .thenReturn(tech12);
+
+        List<Question> result = questionService.getNewsQuestionsForSet(Question.NewsSet.TECHNOLOGY);
+
+        assertThat(result).hasSize(12);
+        assertThat(result).allMatch(q -> q.getNewsSet() == Question.NewsSet.TECHNOLOGY);
+    }
+
+    @Test
+    @DisplayName("getNewsQuestionsForSet() — returns 12 questions for ENVIRONMENT set")
+    void getNewsQuestionsForSet_environmentReturns12() {
+        List<Question> env12 = buildNewsList(12, Question.NewsSet.ENVIRONMENT);
+        when(questionRepository.findByQuestionTypeAndNewsSet(
+                Question.QuestionType.NEWS, Question.NewsSet.ENVIRONMENT))
+                .thenReturn(env12);
+
+        List<Question> result = questionService.getNewsQuestionsForSet(Question.NewsSet.ENVIRONMENT);
+
+        assertThat(result).hasSize(12);
+        assertThat(result).allMatch(q -> q.getNewsSet() == Question.NewsSet.ENVIRONMENT);
     }
 
     // ── findEntityByCode() ───────────────────────────────────────────────────
 
     @Test
-    @DisplayName("findEntityByCode() — returns question entity when found")
-    void findEntityByCode_success() {
-        when(questionRepository.findById("P1")).thenReturn(Optional.of(mockQuestion));
+    @DisplayName("findEntityByCode() — returns PROFILE question entity when found")
+    void findEntityByCode_profileSuccess() {
+        when(questionRepository.findById("P1")).thenReturn(Optional.of(mockProfileQuestion));
 
         Question result = questionService.findEntityByCode("P1");
 
         assertThat(result).isNotNull();
         assertThat(result.getQuestionCode()).isEqualTo("P1");
-        assertThat(result.getConstructo()).isEqualTo("Creador");
+        assertThat(result.getQuestionType()).isEqualTo(Question.QuestionType.PROFILE);
+    }
+
+    @Test
+    @DisplayName("findEntityByCode() — returns NEWS question entity when found")
+    void findEntityByCode_newsSuccess() {
+        when(questionRepository.findById("1_exp1")).thenReturn(Optional.of(mockNewsQuestion));
+
+        Question result = questionService.findEntityByCode("1_exp1");
+
+        assertThat(result).isNotNull();
+        assertThat(result.getQuestionCode()).isEqualTo("1_exp1");
+        assertThat(result.getQuestionType()).isEqualTo(Question.QuestionType.NEWS);
+        assertThat(result.getNewsSet()).isEqualTo(Question.NewsSet.TECHNOLOGY);
     }
 
     @Test
@@ -104,16 +155,28 @@ class QuestionServiceTest {
                 .hasMessageContaining("P99");
     }
 
-    // ── countAll() ───────────────────────────────────────────────────────────
+    // ── countByType() ────────────────────────────────────────────────────────
 
     @Test
-    @DisplayName("countAll() — returns correct question count")
-    void countAll_returnsCorrectCount() {
-        when(questionRepository.count()).thenReturn(17L);
+    @DisplayName("countByType() — returns correct count for PROFILE")
+    void countByType_profileCount() {
+        when(questionRepository.countByQuestionType(Question.QuestionType.PROFILE))
+                .thenReturn(18L);
 
-        long result = questionService.countAll();
+        long result = questionService.countByType(Question.QuestionType.PROFILE);
 
-        assertThat(result).isEqualTo(17L);
+        assertThat(result).isEqualTo(18L);
+    }
+
+    @Test
+    @DisplayName("countByType() — returns correct count for NEWS")
+    void countByType_newsCount() {
+        when(questionRepository.countByQuestionType(Question.QuestionType.NEWS))
+                .thenReturn(24L); // 12 env + 12 tech
+
+        long result = questionService.countByType(Question.QuestionType.NEWS);
+
+        assertThat(result).isEqualTo(24L);
     }
 
     // ── updateCorrectAnswer() ────────────────────────────────────────────────
@@ -121,23 +184,21 @@ class QuestionServiceTest {
     @Test
     @DisplayName("updateCorrectAnswer() — success: updates and returns admin DTO")
     void updateCorrectAnswer_success() {
-        // Arrange
         QuestionCorrectAnswerRequestDto request = new QuestionCorrectAnswerRequestDto();
         request.setCorrectAnswer(Question.CorrectAnswer.FAKE);
 
-        Question updatedQuestion = Question.builder()
+        Question updated = Question.builder()
                 .questionCode("P1")
-                .itemText("Valoro el contenido...")
+                .itemText("test")
+                .questionType(Question.QuestionType.PROFILE)
                 .correctAnswer(Question.CorrectAnswer.FAKE)
                 .build();
 
-        when(questionRepository.findById("P1")).thenReturn(Optional.of(mockQuestion));
-        when(questionRepository.save(any(Question.class))).thenReturn(updatedQuestion);
+        when(questionRepository.findById("P1")).thenReturn(Optional.of(mockProfileQuestion));
+        when(questionRepository.save(any(Question.class))).thenReturn(updated);
 
-        // Act
         QuestionAdminResponseDto result = questionService.updateCorrectAnswer("P1", request);
 
-        // Assert
         assertThat(result).isNotNull();
         assertThat(result.getQuestionCode()).isEqualTo("P1");
         assertThat(result.getCorrectAnswer()).isEqualTo(Question.CorrectAnswer.FAKE);
@@ -145,15 +206,13 @@ class QuestionServiceTest {
     }
 
     @Test
-    @DisplayName("updateCorrectAnswer() — throws ResourceNotFoundException when question not found")
+    @DisplayName("updateCorrectAnswer() — throws ResourceNotFoundException when not found")
     void updateCorrectAnswer_notFound_throwsResourceNotFoundException() {
-        // Arrange
         QuestionCorrectAnswerRequestDto request = new QuestionCorrectAnswerRequestDto();
         request.setCorrectAnswer(Question.CorrectAnswer.REAL);
 
         when(questionRepository.findById("P99")).thenReturn(Optional.empty());
 
-        // Act & Assert
         assertThatThrownBy(() -> questionService.updateCorrectAnswer("P99", request))
                 .isInstanceOf(ResourceNotFoundException.class)
                 .hasMessageContaining("P99");
@@ -164,23 +223,36 @@ class QuestionServiceTest {
     @Test
     @DisplayName("updateCorrectAnswer() — can set REAL")
     void updateCorrectAnswer_setReal() {
-        // Arrange
         QuestionCorrectAnswerRequestDto request = new QuestionCorrectAnswerRequestDto();
         request.setCorrectAnswer(Question.CorrectAnswer.REAL);
 
         Question updated = Question.builder()
-                .questionCode("P1")
+                .questionCode("1_exp1")
                 .itemText("test")
+                .questionType(Question.QuestionType.NEWS)
                 .correctAnswer(Question.CorrectAnswer.REAL)
                 .build();
 
-        when(questionRepository.findById("P1")).thenReturn(Optional.of(mockQuestion));
+        when(questionRepository.findById("1_exp1")).thenReturn(Optional.of(mockNewsQuestion));
         when(questionRepository.save(any())).thenReturn(updated);
 
-        // Act
-        QuestionAdminResponseDto result = questionService.updateCorrectAnswer("P1", request);
+        QuestionAdminResponseDto result = questionService.updateCorrectAnswer("1_exp1", request);
 
-        // Assert
         assertThat(result.getCorrectAnswer()).isEqualTo(Question.CorrectAnswer.REAL);
+    }
+
+    // ── helpers ──────────────────────────────────────────────────────────────
+
+    private List<Question> buildNewsList(int count, Question.NewsSet newsSet) {
+        return java.util.stream.IntStream.rangeClosed(1, count)
+                .mapToObj(i -> Question.builder()
+                        .questionCode(i + "_" + newsSet.name().toLowerCase())
+                        .constructo("Test")
+                        .itemText("News question " + i)
+                        .questionType(Question.QuestionType.NEWS)
+                        .newsSet(newsSet)
+                        .correctAnswer(i % 2 == 0 ? Question.CorrectAnswer.REAL : Question.CorrectAnswer.FAKE)
+                        .build())
+                .toList();
     }
 }

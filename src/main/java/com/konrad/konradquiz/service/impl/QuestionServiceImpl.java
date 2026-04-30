@@ -52,4 +52,24 @@ public class QuestionServiceImpl implements IQuestionService {
     public long countAll() {
         return questionRepository.count();
     }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<Question> getAllProfileQuestions() {
+        return questionRepository.findByQuestionType(Question.QuestionType.PROFILE);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<Question> getNewsQuestionsForSet(Question.NewsSet newsSet) {
+        return questionRepository.findByQuestionTypeAndNewsSet(
+                Question.QuestionType.NEWS, newsSet
+        );
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public long countByType(Question.QuestionType questionType) {
+        return questionRepository.countByQuestionType(questionType);
+    }
 }

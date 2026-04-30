@@ -96,6 +96,10 @@ public class Participant {
     @Column(name = "consent_project_info", nullable = false)
     private Boolean consentProjectInfo;
 
+    @Enumerated(EnumType.STRING)
+    @Column(length = 15)
+    private Question.NewsSet newsSet;            // ENVIRONMENT or TECHNOLOGY
+
     public enum Sex { MALE, FEMALE, OTHER }
 
     public enum FeedbackTiming { GROUP_A, GROUP_B }

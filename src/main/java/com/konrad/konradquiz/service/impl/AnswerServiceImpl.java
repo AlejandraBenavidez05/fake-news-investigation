@@ -37,13 +37,38 @@ public class AnswerServiceImpl implements IAnswerService {
             throw new BusinessException("Participant has already submitted answers.");
         }
 
-        long totalQuestions = questionService.countAll();
-        if (dto.getAnswers().size() != totalQuestions) {
+        // ── Validate counts per section ──────────────────────────────────────
+        long profileCount = dto.getAnswers().stream()
+                .filter(a -> a.getAnswerType() == Answer.AnswerType.PROFILE)
+                .count();
+        long part1Count = dto.getAnswers().stream()
+                .filter(a -> a.getAnswerType() == Answer.AnswerType.FAKE_DETECTION)
+                .count();
+        long part2Count = dto.getAnswers().stream()
+                .filter(a -> a.getAnswerType() == Answer.AnswerType.MEMORY_TEST)
+                .count();
+
+        long totalProfileQuestions = questionService.countByType(Question.QuestionType.PROFILE);
+
+        if (profileCount != totalProfileQuestions) {
             throw new BusinessException(
-                    "Must answer all " + totalQuestions + " questions. Received: " + dto.getAnswers().size()
+                    "Must answer all " + totalProfileQuestions + " profile questions. Received: " + profileCount
+            );
+        }
+        if (part1Count != SessionBuilderService.PART1_SIZE) {
+            throw new BusinessException(
+                    "Must answer exactly " + SessionBuilderService.PART1_SIZE +
+                            " Part 1 news questions. Received: " + part1Count
+            );
+        }
+        if (part2Count != SessionBuilderService.PART2_SIZE) {
+            throw new BusinessException(
+                    "Must answer exactly " + SessionBuilderService.PART2_SIZE +
+                            " Part 2 news questions. Received: " + part2Count
             );
         }
 
+        // ── Build and save answers ───────────────────────────────────────────
         List<Answer> answers = new ArrayList<>();
         for (AnswerRequestDto answerDto : dto.getAnswers()) {
             Question question = questionService.findEntityByCode(answerDto.getQuestionCode());
@@ -52,12 +77,12 @@ public class AnswerServiceImpl implements IAnswerService {
                     .question(question)
                     .score(answerDto.getScore())
                     .questionOrder(answerDto.getQuestionOrder())
+                    .answerType(answerDto.getAnswerType())
                     .build());
         }
 
         answerRepository.saveAll(answers);
 
-        // Calculate completion time — frontend sends startedAt as epoch seconds
         long completionTimeSeconds = Instant.now().getEpochSecond() - dto.getStartedAt();
         participantService.recordCompletionTime(participantId, completionTimeSeconds);
 

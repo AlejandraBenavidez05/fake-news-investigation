@@ -11,6 +11,8 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GenerationType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.EnumType;
 
 import jakarta.persistence.Column;
 import lombok.AllArgsConstructor;
@@ -70,6 +72,16 @@ public class Answer {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "question_code", nullable = false)
     private Question question;
+
+    public enum AnswerType {
+        PROFILE,         // nada/poco/bastante/mucho mapped to 0/33/66/100
+        FAKE_DETECTION,  // Part 1: 0=sure FAKE, 100=sure REAL
+        MEMORY_TEST      // Part 2: 0=sure OLD, 100=sure NEW
+    }
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    private AnswerType answerType;
 
     public enum SdtCategory {
         HIT,              // (A) News is FAKE + participant said FAKE ✅

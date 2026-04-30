@@ -50,13 +50,23 @@ public class Question {
     }
 
     public enum QuestionType {
-        PROFILE,   // about the person — always TEXT
-        NEWS       // fake news detection — format depends on participant group
+        PROFILE,        // about the person — always TEXT
+        NEWS            // fake news detection — belongs to a set
     }
 
+    public enum NewsSet {
+        ENVIRONMENT,
+        TECHNOLOGY
+    }
+
+    // Replace existing questionType + add newsSet
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 10)
     private QuestionType questionType;
+
+    @Enumerated(EnumType.STRING)
+    @Column(length = 15)
+    private NewsSet newsSet;            // null for PROFILE questions
 
     @Column(length = 20)
     private String phase;               // e.g. "FASE 1"

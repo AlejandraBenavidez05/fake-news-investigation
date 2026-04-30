@@ -2,6 +2,7 @@ package com.konrad.konradquiz.service.impl;
 
 import com.konrad.konradquiz.entity.Participant.FeedbackTiming;
 import com.konrad.konradquiz.entity.Participant.PresentationFormat;
+import com.konrad.konradquiz.entity.Question;
 import com.konrad.konradquiz.repository.ParticipantRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -57,4 +58,20 @@ public class GroupAssignmentService {
             PresentationFormat presentationFormat,
             long count
     ) {}
+
+    /**
+     * Assigns news set (ENVIRONMENT or TECHNOLOGY) via round-robin.
+     * Independent from the presentation group assignment.
+     */
+    @Transactional(readOnly = true)
+    public Question.NewsSet assignNewsSet() {
+        long environmentCount = participantRepository
+                .countByNewsSet(Question.NewsSet.ENVIRONMENT);
+        long technologyCount = participantRepository
+                .countByNewsSet(Question.NewsSet.TECHNOLOGY);
+
+        return environmentCount <= technologyCount
+                ? Question.NewsSet.ENVIRONMENT
+                : Question.NewsSet.TECHNOLOGY;
+    }
 }

@@ -10,4 +10,7 @@ public interface IQuestionService {
     Question findEntityByCode(String questionCode);   // ← returns raw entity for internal service use
     long countAll();                                  // ← used by AnswerService for validation
     QuestionAdminResponseDto updateCorrectAnswer(String questionCode, QuestionCorrectAnswerRequestDto dto);
+    List<Question> getAllProfileQuestions();
+    List<Question> getNewsQuestionsForSet(Question.NewsSet newsSet);
+    long countByType(Question.QuestionType questionType);
 }

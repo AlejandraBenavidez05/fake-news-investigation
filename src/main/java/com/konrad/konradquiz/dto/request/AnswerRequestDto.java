@@ -1,5 +1,6 @@
 package com.konrad.konradquiz.dto.request;
 
+import com.konrad.konradquiz.entity.Answer;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
@@ -18,4 +19,7 @@ public class AnswerRequestDto {
     @NotNull
     @Min(1)
     private Integer questionOrder;
+
+    @NotNull
+    private Answer.AnswerType answerType;   // FAKE_DETECTION or MEMORY_TEST
 }

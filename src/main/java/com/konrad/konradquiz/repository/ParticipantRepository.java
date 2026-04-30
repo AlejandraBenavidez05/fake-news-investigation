@@ -1,6 +1,7 @@
 package com.konrad.konradquiz.repository;
 
 import com.konrad.konradquiz.entity.Participant;
+import com.konrad.konradquiz.entity.Question;
 import com.konrad.konradquiz.service.impl.GroupAssignmentService;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -26,4 +27,6 @@ public interface ParticipantRepository extends JpaRepository<Participant, Long> 
     GROUP BY p.feedbackTiming, p.presentationFormat
     """)
     List<GroupAssignmentService.GroupCount> countByGroup();
+
+    long countByNewsSet(Question.NewsSet newsSet);
 }

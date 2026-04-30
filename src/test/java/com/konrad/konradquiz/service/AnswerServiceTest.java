@@ -9,6 +9,7 @@ import com.konrad.konradquiz.entity.Question;
 import com.konrad.konradquiz.exception.BusinessException;
 import com.konrad.konradquiz.repository.AnswerRepository;
 import com.konrad.konradquiz.service.impl.AnswerServiceImpl;
+import com.konrad.konradquiz.service.impl.SessionBuilderService;
 import com.konrad.konradquiz.service.interfaces.IParticipantService;
 import com.konrad.konradquiz.service.interfaces.IQuestionService;
 import org.junit.jupiter.api.BeforeEach;
@@ -21,6 +22,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.*;
@@ -41,6 +43,9 @@ class AnswerServiceTest {
     private Participant mockParticipant;
     private BatchAnswerRequestDto validBatchRequest;
 
+    // Total = 18 profile + 8 part1 + 8 part2 = 34
+    private static final int PROFILE_COUNT = 18;
+
     @BeforeEach
     void setUp() {
         mockParticipant = Participant.builder()
@@ -49,30 +54,18 @@ class AnswerServiceTest {
                 .feedbackTiming(Participant.FeedbackTiming.GROUP_A)
                 .build();
 
-        // Build 4 valid answers matching 4 mock questions
         validBatchRequest = new BatchAnswerRequestDto();
-        validBatchRequest.setStartedAt(Instant.now().getEpochSecond() - 30); // simulates 30s ago
-        validBatchRequest.setAnswers(List.of(
-                buildAnswerRequest("P1", 75, 1),
-                buildAnswerRequest("P2", 20, 2),
-                buildAnswerRequest("P3", 90, 3),
-                buildAnswerRequest("P4", 45, 4)
-        ));
+        validBatchRequest.setStartedAt(Instant.now().getEpochSecond() - 30);
+        validBatchRequest.setAnswers(buildFullAnswerSet());
     }
 
     // ── submitBatch() ────────────────────────────────────────────────────────
 
     @Test
-    @DisplayName("submitBatch() — success: saves all answers and returns count")
+    @DisplayName("submitBatch() — success: saves all 34 answers and returns count")
     void submitBatch_success() {
         // Arrange
-        when(participantService.findEntityById(1L)).thenReturn(mockParticipant);
-        when(answerRepository.countByParticipantId(1L)).thenReturn(0L);
-        when(questionService.countAll()).thenReturn(4L);
-        when(questionService.findEntityByCode(anyString()))
-                .thenAnswer(inv -> buildQuestion(inv.getArgument(0)));
-        when(answerRepository.saveAll(anyList()))
-                .thenAnswer(inv -> inv.getArgument(0));
+        mockSuccessfulSubmit();
 
         // Act
         BatchAnswerResponseDto result = answerService.submitBatch(1L, validBatchRequest);
@@ -80,52 +73,45 @@ class AnswerServiceTest {
         // Assert
         assertThat(result).isNotNull();
         assertThat(result.getParticipantId()).isEqualTo(1L);
-        assertThat(result.getSavedCount()).isEqualTo(4);
+        assertThat(result.getSavedCount()).isEqualTo(34);
 
-        // Verify saveAll called once with correct number of answers
         ArgumentCaptor<List<Answer>> captor = ArgumentCaptor.forClass(List.class);
         verify(answerRepository).saveAll(captor.capture());
-        assertThat(captor.getValue()).hasSize(4);
+        assertThat(captor.getValue()).hasSize(34);
+    }
+
+    @Test
+    @DisplayName("submitBatch() — answerType is stored correctly per answer")
+    void submitBatch_answerTypeStoredCorrectly() {
+        // Arrange
+        mockSuccessfulSubmit();
+
+        // Act
+        answerService.submitBatch(1L, validBatchRequest);
+
+        // Assert
+        ArgumentCaptor<List<Answer>> captor = ArgumentCaptor.forClass(List.class);
+        verify(answerRepository).saveAll(captor.capture());
+
+        List<Answer> saved = captor.getValue();
+
+        long profileCount = saved.stream()
+                .filter(a -> a.getAnswerType() == Answer.AnswerType.PROFILE).count();
+        long part1Count = saved.stream()
+                .filter(a -> a.getAnswerType() == Answer.AnswerType.FAKE_DETECTION).count();
+        long part2Count = saved.stream()
+                .filter(a -> a.getAnswerType() == Answer.AnswerType.MEMORY_TEST).count();
+
+        assertThat(profileCount).isEqualTo(PROFILE_COUNT);
+        assertThat(part1Count).isEqualTo(SessionBuilderService.PART1_SIZE);
+        assertThat(part2Count).isEqualTo(SessionBuilderService.PART2_SIZE);
     }
 
     @Test
     @DisplayName("submitBatch() — scores are stored correctly per question")
     void submitBatch_scoresStoredCorrectly() {
         // Arrange
-        when(participantService.findEntityById(1L)).thenReturn(mockParticipant);
-        when(answerRepository.countByParticipantId(1L)).thenReturn(0L);
-        when(questionService.countAll()).thenReturn(4L);
-        when(questionService.findEntityByCode(anyString()))
-                .thenAnswer(inv -> buildQuestion(inv.getArgument(0)));
-        when(answerRepository.saveAll(anyList()))
-                .thenAnswer(inv -> inv.getArgument(0));
-
-        // Act
-        answerService.submitBatch(1L, validBatchRequest);
-
-        // Assert — capture and verify scores
-        ArgumentCaptor<List<Answer>> captor = ArgumentCaptor.forClass(List.class);
-        verify(answerRepository).saveAll(captor.capture());
-        verify(participantService).recordCompletionTime(eq(1L), anyLong());
-
-        List<Answer> savedAnswers = captor.getValue();
-        assertThat(savedAnswers.get(0).getScore()).isEqualTo(75);
-        assertThat(savedAnswers.get(1).getScore()).isEqualTo(20);
-        assertThat(savedAnswers.get(2).getScore()).isEqualTo(90);
-        assertThat(savedAnswers.get(3).getScore()).isEqualTo(45);
-    }
-
-    @Test
-    @DisplayName("submitBatch() — question order is stored correctly")
-    void submitBatch_questionOrderStoredCorrectly() {
-        // Arrange
-        when(participantService.findEntityById(1L)).thenReturn(mockParticipant);
-        when(answerRepository.countByParticipantId(1L)).thenReturn(0L);
-        when(questionService.countAll()).thenReturn(4L);
-        when(questionService.findEntityByCode(anyString()))
-                .thenAnswer(inv -> buildQuestion(inv.getArgument(0)));
-        when(answerRepository.saveAll(anyList()))
-                .thenAnswer(inv -> inv.getArgument(0));
+        mockSuccessfulSubmit();
 
         // Act
         answerService.submitBatch(1L, validBatchRequest);
@@ -135,11 +121,32 @@ class AnswerServiceTest {
         verify(answerRepository).saveAll(captor.capture());
         verify(participantService).recordCompletionTime(eq(1L), anyLong());
 
-        List<Answer> savedAnswers = captor.getValue();
-        assertThat(savedAnswers.get(0).getQuestionOrder()).isEqualTo(1);
-        assertThat(savedAnswers.get(1).getQuestionOrder()).isEqualTo(2);
-        assertThat(savedAnswers.get(2).getQuestionOrder()).isEqualTo(3);
-        assertThat(savedAnswers.get(3).getQuestionOrder()).isEqualTo(4);
+        List<Answer> saved = captor.getValue();
+        // First profile answer score is 33
+        assertThat(saved.get(0).getScore()).isEqualTo(33);
+        // First news part1 answer score is 75
+        assertThat(saved.get(PROFILE_COUNT).getScore()).isEqualTo(75);
+        // First news part2 answer score is 80
+        assertThat(saved.get(PROFILE_COUNT + SessionBuilderService.PART1_SIZE).getScore()).isEqualTo(80);
+    }
+
+    @Test
+    @DisplayName("submitBatch() — question order is stored correctly")
+    void submitBatch_questionOrderStoredCorrectly() {
+        // Arrange
+        mockSuccessfulSubmit();
+
+        // Act
+        answerService.submitBatch(1L, validBatchRequest);
+
+        // Assert
+        ArgumentCaptor<List<Answer>> captor = ArgumentCaptor.forClass(List.class);
+        verify(answerRepository).saveAll(captor.capture());
+        verify(participantService).recordCompletionTime(eq(1L), anyLong());
+
+        List<Answer> saved = captor.getValue();
+        assertThat(saved.get(0).getQuestionOrder()).isEqualTo(1);
+        assertThat(saved.get(1).getQuestionOrder()).isEqualTo(2);
     }
 
     @Test
@@ -147,7 +154,7 @@ class AnswerServiceTest {
     void submitBatch_alreadySubmitted_throwsBusinessException() {
         // Arrange
         when(participantService.findEntityById(1L)).thenReturn(mockParticipant);
-        when(answerRepository.countByParticipantId(1L)).thenReturn(4L); // already has answers
+        when(answerRepository.countByParticipantId(1L)).thenReturn(34L);
 
         // Act & Assert
         assertThatThrownBy(() -> answerService.submitBatch(1L, validBatchRequest))
@@ -158,18 +165,40 @@ class AnswerServiceTest {
     }
 
     @Test
-    @DisplayName("submitBatch() — throws BusinessException when answer count doesn't match questions")
-    void submitBatch_wrongAnswerCount_throwsBusinessException() {
+    @DisplayName("submitBatch() — throws BusinessException when profile count is wrong")
+    void submitBatch_wrongProfileCount_throwsBusinessException() {
         // Arrange
         when(participantService.findEntityById(1L)).thenReturn(mockParticipant);
         when(answerRepository.countByParticipantId(1L)).thenReturn(0L);
-        when(questionService.countAll()).thenReturn(17L); // 17 questions but only 4 answers sent
+        when(questionService.countByType(Question.QuestionType.PROFILE)).thenReturn(20L); // expects 20, sent 18
 
         // Act & Assert
         assertThatThrownBy(() -> answerService.submitBatch(1L, validBatchRequest))
                 .isInstanceOf(BusinessException.class)
-                .hasMessageContaining("17")
-                .hasMessageContaining("4");
+                .hasMessageContaining("profile");
+
+        verify(answerRepository, never()).saveAll(any());
+    }
+
+    @Test
+    @DisplayName("submitBatch() — throws BusinessException when part1 count is wrong")
+    void submitBatch_wrongPart1Count_throwsBusinessException() {
+        // Arrange — send only 5 FAKE_DETECTION instead of 8
+        BatchAnswerRequestDto badRequest = new BatchAnswerRequestDto();
+        badRequest.setStartedAt(Instant.now().getEpochSecond() - 30);
+        List<AnswerRequestDto> answers = new ArrayList<>(buildProfileAnswers());
+        answers.addAll(buildNewsAnswers(5, Answer.AnswerType.FAKE_DETECTION, "N_P1_"));
+        answers.addAll(buildNewsAnswers(SessionBuilderService.PART2_SIZE, Answer.AnswerType.MEMORY_TEST, "N_P2_"));
+        badRequest.setAnswers(answers);
+
+        when(participantService.findEntityById(1L)).thenReturn(mockParticipant);
+        when(answerRepository.countByParticipantId(1L)).thenReturn(0L);
+        when(questionService.countByType(Question.QuestionType.PROFILE)).thenReturn((long) PROFILE_COUNT);
+
+        // Act & Assert
+        assertThatThrownBy(() -> answerService.submitBatch(1L, badRequest))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("Part 1");
 
         verify(answerRepository, never()).saveAll(any());
     }
@@ -178,63 +207,32 @@ class AnswerServiceTest {
     @DisplayName("submitBatch() — saveAll called once (single DB round trip)")
     void submitBatch_singleDbRoundTrip() {
         // Arrange
-        when(participantService.findEntityById(1L)).thenReturn(mockParticipant);
-        when(answerRepository.countByParticipantId(1L)).thenReturn(0L);
-        when(questionService.countAll()).thenReturn(4L);
-        when(questionService.findEntityByCode(anyString()))
-                .thenAnswer(inv -> buildQuestion(inv.getArgument(0)));
-        when(answerRepository.saveAll(anyList()))
-                .thenAnswer(inv -> inv.getArgument(0));
+        mockSuccessfulSubmit();
 
         // Act
         answerService.submitBatch(1L, validBatchRequest);
 
-        // Assert — saveAll called exactly once, not per answer
+        // Assert
         verify(answerRepository, times(1)).saveAll(anyList());
-        verify(answerRepository, never()).save(any()); // never called individually
+        verify(answerRepository, never()).save(any());
     }
 
-    // ── helpers ──────────────────────────────────────────────────────────────
-
-    private AnswerRequestDto buildAnswerRequest(String code, int score, int order) {
-        AnswerRequestDto dto = new AnswerRequestDto();
-        dto.setQuestionCode(code);
-        dto.setScore(score);
-        dto.setQuestionOrder(order);
-        return dto;
-    }
-
-    private Question buildQuestion(String code) {
-        return Question.builder()
-                .questionCode(code)
-                .constructo("Creador")
-                .itemText("Test question " + code)
-                .correctAnswer(Question.CorrectAnswer.REAL)
-                .build();
-    }
     @Test
     @DisplayName("submitBatch() — completion time is recorded after saving answers")
     void submitBatch_completionTimeRecorded() {
         // Arrange
-        long startedAt = Instant.now().getEpochSecond() - 45; // 45 seconds ago
+        long startedAt = Instant.now().getEpochSecond() - 45;
         validBatchRequest.setStartedAt(startedAt);
-
-        when(participantService.findEntityById(1L)).thenReturn(mockParticipant);
-        when(answerRepository.countByParticipantId(1L)).thenReturn(0L);
-        when(questionService.countAll()).thenReturn(4L);
-        when(questionService.findEntityByCode(anyString()))
-                .thenAnswer(inv -> buildQuestion(inv.getArgument(0)));
-        when(answerRepository.saveAll(anyList()))
-                .thenAnswer(inv -> inv.getArgument(0));
+        mockSuccessfulSubmit();
 
         // Act
         answerService.submitBatch(1L, validBatchRequest);
 
-        // Assert — completion time is positive and roughly correct
+        // Assert
         ArgumentCaptor<Long> timeCaptor = ArgumentCaptor.forClass(Long.class);
         verify(participantService).recordCompletionTime(eq(1L), timeCaptor.capture());
-        assertThat(timeCaptor.getValue()).isGreaterThanOrEqualTo(44L); // at least 44s
-        assertThat(timeCaptor.getValue()).isLessThan(60L);             // but not unreasonably large
+        assertThat(timeCaptor.getValue()).isGreaterThanOrEqualTo(44L);
+        assertThat(timeCaptor.getValue()).isLessThan(60L);
     }
 
     @Test
@@ -242,12 +240,71 @@ class AnswerServiceTest {
     void submitBatch_alreadySubmitted_completionTimeNotRecorded() {
         // Arrange
         when(participantService.findEntityById(1L)).thenReturn(mockParticipant);
-        when(answerRepository.countByParticipantId(1L)).thenReturn(4L);
+        when(answerRepository.countByParticipantId(1L)).thenReturn(34L);
 
         // Act & Assert
         assertThatThrownBy(() -> answerService.submitBatch(1L, validBatchRequest))
                 .isInstanceOf(BusinessException.class);
 
         verify(participantService, never()).recordCompletionTime(any(), any());
+    }
+
+    // ── helpers ──────────────────────────────────────────────────────────────
+
+    private void mockSuccessfulSubmit() {
+        when(participantService.findEntityById(1L)).thenReturn(mockParticipant);
+        when(answerRepository.countByParticipantId(1L)).thenReturn(0L);
+        when(questionService.countByType(Question.QuestionType.PROFILE))
+                .thenReturn((long) PROFILE_COUNT);
+        when(questionService.findEntityByCode(anyString()))
+                .thenAnswer(inv -> buildQuestion(inv.getArgument(0)));
+        when(answerRepository.saveAll(anyList()))
+                .thenAnswer(inv -> inv.getArgument(0));
+    }
+
+    private List<AnswerRequestDto> buildFullAnswerSet() {
+        List<AnswerRequestDto> answers = new ArrayList<>();
+        answers.addAll(buildProfileAnswers());
+        answers.addAll(buildNewsAnswers(SessionBuilderService.PART1_SIZE,
+                Answer.AnswerType.FAKE_DETECTION, "N_P1_"));
+        answers.addAll(buildNewsAnswers(SessionBuilderService.PART2_SIZE,
+                Answer.AnswerType.MEMORY_TEST, "N_P2_"));
+        return answers;
+    }
+
+    private List<AnswerRequestDto> buildProfileAnswers() {
+        List<AnswerRequestDto> answers = new ArrayList<>();
+        for (int i = 1; i <= PROFILE_COUNT; i++) {
+            AnswerRequestDto dto = new AnswerRequestDto();
+            dto.setQuestionCode("P" + i);
+            dto.setScore(33);
+            dto.setQuestionOrder(i);
+            dto.setAnswerType(Answer.AnswerType.PROFILE);
+            answers.add(dto);
+        }
+        return answers;
+    }
+
+    private List<AnswerRequestDto> buildNewsAnswers(int count, Answer.AnswerType type, String prefix) {
+        List<AnswerRequestDto> answers = new ArrayList<>();
+        for (int i = 1; i <= count; i++) {
+            AnswerRequestDto dto = new AnswerRequestDto();
+            dto.setQuestionCode(prefix + i);
+            dto.setScore(type == Answer.AnswerType.FAKE_DETECTION ? 75 : 80);
+            dto.setQuestionOrder(i);
+            dto.setAnswerType(type);
+            answers.add(dto);
+        }
+        return answers;
+    }
+
+    private Question buildQuestion(String code) {
+        return Question.builder()
+                .questionCode(code)
+                .constructo("Creador")
+                .itemText("Test question " + code)
+                .questionType(Question.QuestionType.NEWS)
+                .correctAnswer(Question.CorrectAnswer.REAL)
+                .build();
     }
 }
