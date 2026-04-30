@@ -75,6 +75,10 @@ jobs:
 
       - uses: actions/checkout@v4
 
+      # ✅ ADD IT HERE
+      - name: Normalize image name to lowercase
+        run: |
+          echo "IMAGE_NAME_LOWER=$(echo '${{ github.repository }}/backend' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -99,6 +103,6 @@ jobs:
         with:
           push: false
           load: true
-          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.TAG }}
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_LOWER }}:${{ env.TAG }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
