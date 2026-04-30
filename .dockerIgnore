@@ -1,0 +1,43 @@
+# Git
+.git
+.gitignore
+
+# IDE
+.idea
+.vscode
+*.iml
+
+# Maven build output
+target/
+
+# Logs
+*.log
+logs/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Node
+node_modules
+dist
+build
+
+# Environment files
+.env
+.env.*
+
+# Documentation
+README.md
+docs/
+
+# Terraform
+.terraform
+*.tfstate
+*.tfstate.*
+
+# Tests (optional if you don't run tests in container build)
+src/test
+
+# CI
+.github

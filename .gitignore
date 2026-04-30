@@ -1,0 +1,72 @@
+# ========================
+# Maven
+# ========================
+target/
+!.mvn/wrapper/maven-wrapper.jar
+
+# ========================
+# Logs
+# ========================
+*.log
+logs/
+
+# ========================
+# OS files
+# ========================
+.DS_Store
+Thumbs.db
+
+# ========================
+# IDEs
+# ========================
+.idea/
+.vscode/
+*.iml
+
+# ========================
+# Node (if frontend inside repo)
+# ========================
+node_modules/
+dist/
+build/
+
+# ========================
+# Environment files
+# ========================
+.env
+.env.*
+*.env
+
+# ========================
+# Secrets
+# ========================
+*.key
+*.pem
+*.p12
+*.jks
+
+# ========================
+# Docker
+# ========================
+docker-compose.override.yml
+
+# ========================
+# Terraform
+# ========================
+*.tfstate
+*.tfstate.*
+.terraform/
+.terraform.lock.hcl
+crash.log
+
+# ========================
+# Mac
+# ========================
+.AppleDouble
+.LSOverride
+
+# ========================
+# Windows
+# ========================
+ehthumbs.db
+Desktop.ini
