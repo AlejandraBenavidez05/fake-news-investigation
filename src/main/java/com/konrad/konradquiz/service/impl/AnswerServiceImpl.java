@@ -11,6 +11,7 @@ import com.konrad.konradquiz.repository.AnswerRepository;
 import com.konrad.konradquiz.service.interfaces.IAnswerService;
 import com.konrad.konradquiz.service.interfaces.IParticipantService;
 import com.konrad.konradquiz.service.interfaces.IQuestionService;
+import com.konrad.konradquiz.util.SdtUtil;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -71,6 +72,7 @@ public class AnswerServiceImpl implements IAnswerService {
         // ── Build and save answers ───────────────────────────────────────────
         List<Answer> answers = new ArrayList<>();
         for (AnswerRequestDto answerDto : dto.getAnswers()) {
+            validateScoreRange(answerDto);
             Question question = questionService.findEntityByCode(answerDto.getQuestionCode());
             answers.add(Answer.builder()
                     .participant(participant)
@@ -78,6 +80,12 @@ public class AnswerServiceImpl implements IAnswerService {
                     .score(answerDto.getScore())
                     .questionOrder(answerDto.getQuestionOrder())
                     .answerType(answerDto.getAnswerType())
+                    .novelty(answerDto.getNovelty())
+                    .sdtCategory(SdtUtil.classify(
+                            question.getCorrectAnswer(),
+                            answerDto.getScore(),
+                            answerDto.getAnswerType()
+                    ))
                     .build());
         }
 
@@ -90,5 +98,26 @@ public class AnswerServiceImpl implements IAnswerService {
                 .participantId(participantId)
                 .savedCount(answers.size())
                 .build();
+    }
+
+    private void validateScoreRange(AnswerRequestDto dto) {
+        switch (dto.getAnswerType()) {
+            case PROFILE -> {
+                if (dto.getScore() < 0 || dto.getScore() > 100) {
+                    throw new BusinessException(
+                            "Score for PROFILE must be between 0 and 100. " +
+                                    "Received: " + dto.getScore() + " for question " + dto.getQuestionCode()
+                    );
+                }
+            }
+            case FAKE_DETECTION, MEMORY_TEST -> {
+                if (dto.getScore() < -10 || dto.getScore() > 10) {
+                    throw new BusinessException(
+                            "Score for " + dto.getAnswerType() + " must be between -10 and 10. " +
+                                    "Received: " + dto.getScore() + " for question " + dto.getQuestionCode()
+                    );
+                }
+            }
+        }
     }
 }

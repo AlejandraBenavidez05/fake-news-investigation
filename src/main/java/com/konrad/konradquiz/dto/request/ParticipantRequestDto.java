@@ -47,6 +47,5 @@ public class ParticipantRequestDto {
     @NotNull
     private Boolean consentNoPayment;
 
-    @NotNull
     private Boolean consentProjectInfo;
 }

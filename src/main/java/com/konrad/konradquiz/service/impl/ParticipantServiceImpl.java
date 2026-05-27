@@ -100,10 +100,9 @@ public class ParticipantServiceImpl implements IParticipantService {
                 !Boolean.TRUE.equals(dto.getConsentParticipationProcess()) ||
                 !Boolean.TRUE.equals(dto.getConsentDataProcessing())       ||
                 !Boolean.TRUE.equals(dto.getConsentNoRisk())               ||
-                !Boolean.TRUE.equals(dto.getConsentNoPayment())            ||
-                !Boolean.TRUE.equals(dto.getConsentProjectInfo())) {
+                !Boolean.TRUE.equals(dto.getConsentNoPayment())) {
             throw new BusinessException(
-                    "All consent declarations must be accepted to participate."
+                    "All required consent declarations must be accepted to participate."
             );
         }
     }

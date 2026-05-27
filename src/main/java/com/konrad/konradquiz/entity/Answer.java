@@ -27,8 +27,8 @@ import java.time.LocalDateTime;
         uniqueConstraints = {
                 // One answer per question per participant — no duplicates ever
                 @UniqueConstraint(
-                        name = "uq_answer_participant_question",
-                        columnNames = {"participant_id", "question_code"}
+                        name = "uq_answer_participant_question_type",
+                        columnNames = {"participant_id", "question_code", "answer_type"}
                 )
         },
         indexes = {
@@ -90,4 +90,11 @@ public class Answer {
         CORRECT_RESPONSE, // (D) News is REAL + participant said REAL ✅
         UNSURE            // score exactly 50 — participant couldn't decide
     }
+
+    @Column(length = 5)
+    private String novelty;   // "N" = new (not seen in Part 1), "V" = old (seen in Part 1)
+
+    @Enumerated(EnumType.STRING)
+    @Column(length = 20)
+    private SdtCategory sdtCategory;   // computed and stored when answer is saved
 }

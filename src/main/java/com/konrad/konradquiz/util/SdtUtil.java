@@ -1,5 +1,6 @@
 package com.konrad.konradquiz.util;
 
+import com.konrad.konradquiz.entity.Answer;
 import com.konrad.konradquiz.entity.Answer.SdtCategory;
 import com.konrad.konradquiz.entity.Question.CorrectAnswer;
 
@@ -19,23 +20,20 @@ public class SdtUtil {
      * @param score         participant's score 0–100
      * @return SdtCategory or null if correctAnswer not yet defined
      */
-    public static SdtCategory classify(CorrectAnswer correctAnswer, int score) {
-        if (correctAnswer == null) return null;   // not classified yet
+    public static SdtCategory classify(CorrectAnswer correctAnswer, int score, Answer.AnswerType answerType) {
+        if (correctAnswer == null) return null;
+        if (answerType == Answer.AnswerType.PROFILE) return null;
 
-        boolean participantSaidFake = score < 50;
-        boolean participantSaidReal = score > 50;
-        boolean participantUnsure   = score == 50;
+        // Both FAKE_DETECTION and MEMORY_TEST use -10 to 10 scale, midpoint is 0
+        boolean participantSaidFake = score < 0;
+        boolean participantSaidReal = score > 0;
+        boolean participantUnsure   = score == 0;
 
         if (participantUnsure) return SdtCategory.UNSURE;
 
         return switch (correctAnswer) {
-            case FAKE -> participantSaidFake
-                    ? SdtCategory.HIT           // (A) correct detection of fake
-                    : SdtCategory.MISS;         // (C) missed the fake news
-
-            case REAL -> participantSaidFake
-                    ? SdtCategory.FALSE_ALARM   // (B) wrongly flagged real as fake
-                    : SdtCategory.CORRECT_RESPONSE; // (D) correctly identified real
+            case FAKE -> participantSaidFake ? SdtCategory.HIT : SdtCategory.MISS;
+            case REAL -> participantSaidFake ? SdtCategory.FALSE_ALARM : SdtCategory.CORRECT_RESPONSE;
         };
     }
 }
