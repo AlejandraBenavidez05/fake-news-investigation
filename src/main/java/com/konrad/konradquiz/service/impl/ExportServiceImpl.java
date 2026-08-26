@@ -125,7 +125,7 @@ public class ExportServiceImpl implements IExportService {
                         sanitize(q.getSupportingQuote()),
                         sanitize(q.getPhase()),
                         sanitize(q.getCategory()),
-                        sanitize(q.getNovelty()),
+                        sanitize(answer.getNovelty()),
                         sanitize(q.getSourceVerificationUrl()),
                         sanitize(q.getFactCheckUrl()),
                         sanitize(q.getOriginName()),
