@@ -57,6 +57,7 @@ public class ExportServiceImpl implements IExportService {
                             "consentNoRisk," +
                             "consentNoPayment," +
                             "consentProjectInfo," +
+                            "rewardId," +
                             // Question
                             "questionCode," +
                             "questionType," +
@@ -113,6 +114,7 @@ public class ExportServiceImpl implements IExportService {
                         sanitize(p.getConsentNoRisk()),
                         sanitize(p.getConsentNoPayment()),
                         sanitize(p.getConsentProjectInfo()),
+                        sanitize(p.getRewardId()),
                         // ── Question ─────────────────────────────────────────
                         sanitize(q.getQuestionCode()),
                         sanitize(q.getQuestionType()),

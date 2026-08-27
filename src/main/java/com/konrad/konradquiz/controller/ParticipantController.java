@@ -2,9 +2,11 @@ package com.konrad.konradquiz.controller;
 
 import com.konrad.konradquiz.dto.request.BatchAnswerRequestDto;
 import com.konrad.konradquiz.dto.request.ParticipantRequestDto;
+import com.konrad.konradquiz.dto.request.RewardRequestDto;
 import com.konrad.konradquiz.dto.response.BatchAnswerResponseDto;
 import com.konrad.konradquiz.dto.response.ExperimentSessionDto;
 import com.konrad.konradquiz.dto.response.ParticipantResponseDto;
+import com.konrad.konradquiz.dto.response.RewardResponseDto;
 import com.konrad.konradquiz.service.interfaces.IAnswerService;
 import com.konrad.konradquiz.service.interfaces.IParticipantService;
 import jakarta.validation.Valid;
@@ -39,5 +41,12 @@ public class ParticipantController {
             @Valid @RequestBody BatchAnswerRequestDto dto) {
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(answerService.submitBatch(id, dto));
+    }
+
+    @PostMapping("/{id}/reward")
+    public ResponseEntity<RewardResponseDto> selectReward(
+            @PathVariable Long id,
+            @Valid @RequestBody RewardRequestDto dto) {
+        return ResponseEntity.ok(participantService.selectReward(id, dto));
     }
 }

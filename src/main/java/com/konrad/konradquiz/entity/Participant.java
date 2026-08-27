@@ -100,6 +100,9 @@ public class Participant {
     @Column(length = 15)
     private Question.NewsSet newsSet;            // ENVIRONMENT or TECHNOLOGY
 
+    @Column
+    private Integer rewardId;   // 1, 2 or 3 — selected after experiment completion
+
     public enum Sex { MALE, FEMALE, OTHER }
 
     public enum FeedbackTiming { GROUP_A, GROUP_B }

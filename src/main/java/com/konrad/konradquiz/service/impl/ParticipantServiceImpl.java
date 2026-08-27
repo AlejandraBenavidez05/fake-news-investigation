@@ -1,9 +1,11 @@
 package com.konrad.konradquiz.service.impl;
 
 import com.konrad.konradquiz.dto.request.ParticipantRequestDto;
+import com.konrad.konradquiz.dto.request.RewardRequestDto;
 import com.konrad.konradquiz.dto.response.ExperimentSessionDto;
 import com.konrad.konradquiz.dto.response.ParticipantResponseDto;
 import com.konrad.konradquiz.dto.response.QuestionSessionDto;
+import com.konrad.konradquiz.dto.response.RewardResponseDto;
 import com.konrad.konradquiz.entity.Participant;
 import com.konrad.konradquiz.entity.Question;
 import com.konrad.konradquiz.exception.BusinessException;
@@ -129,5 +131,37 @@ public class ParticipantServiceImpl implements IParticipantService {
                 .orElseThrow(() -> new ResourceNotFoundException("Participant not found: " + participantId));
         participant.setCompletionTimeSeconds(completionTimeSeconds);
         participantRepository.save(participant);
+    }
+
+    @Override
+    @Transactional
+    public RewardResponseDto selectReward(Long participantId, RewardRequestDto dto) {
+
+        Participant participant = participantRepository.findById(participantId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Participant not found: " + participantId));
+
+        // Must have submitted answers first
+        if (participant.getCompletionTimeSeconds() == null) {
+            throw new BusinessException(
+                    "Participant has not completed the experiment yet."
+            );
+        }
+
+        // Cannot change reward once selected
+        if (participant.getRewardId() != null) {
+            throw new BusinessException(
+                    "Reward has already been selected for this participant."
+            );
+        }
+
+        participant.setRewardId(dto.getRewardId());
+        participantRepository.save(participant);
+
+        return RewardResponseDto.builder()
+                .participantId(participantId)
+                .rewardId(dto.getRewardId())
+                .message("Reward " + dto.getRewardId() + " selected successfully.")
+                .build();
     }
 }
