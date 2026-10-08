@@ -51,8 +51,8 @@ public class ParticipantServiceImpl implements IParticipantService {
         }
 
         // ── Group + set assignment ───────────────────────────────────────────
-        GroupAssignmentService.AssignedGroup assignment = groupAssignmentService.assignGroup();
-        Question.NewsSet newsSet = groupAssignmentService.assignNewsSet();
+        GroupAssignmentService.AssignedGroup assignment = groupAssignmentService.assign();
+        Question.NewsSet newsSet = assignment.newsSet();
 
         // ── Save participant ─────────────────────────────────────────────────
         Participant participant = Participant.builder()

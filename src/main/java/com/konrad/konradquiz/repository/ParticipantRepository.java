@@ -17,16 +17,31 @@ public interface ParticipantRepository extends JpaRepository<Participant, Long> 
             Participant.PresentationFormat presentationFormat
     );
 
+    // SQL Server / Azure SQL: serializes assignment requests across application instances.
+    // Transaction ownership releases the lock automatically on commit or rollback.
+    @Query(value = """
+        DECLARE @lockResult int;
+        EXEC @lockResult = sys.sp_getapplock
+            @Resource = N'konradquiz:participant-assignment',
+            @LockMode = 'Exclusive',
+            @LockOwner = 'Transaction',
+            @LockTimeout = 15000;
+        SELECT @lockResult;
+        """, nativeQuery = true)
+    int lockGroupAssignment();
+
     @Query("""
-    SELECT new com.konrad.konradquiz.service.impl.GroupAssignmentService$GroupCount(
-        p.feedbackTiming,
-        p.presentationFormat,
-        COUNT(p)
-    )
-    FROM Participant p
-    GROUP BY p.feedbackTiming, p.presentationFormat
-    """)
-    List<GroupAssignmentService.GroupCount> countByGroup();
+        SELECT new com.konrad.konradquiz.service.impl.GroupAssignmentService$GroupCount(
+            p.newsSet,
+            p.feedbackTiming,
+            p.presentationFormat,
+            COUNT(p)
+        )
+        FROM Participant p
+        WHERE p.completionTimeSeconds IS NOT NULL
+        GROUP BY p.newsSet, p.feedbackTiming, p.presentationFormat
+        """)
+    List<GroupAssignmentService.GroupCount> countCompletedByAllGroups();
 
     long countByNewsSet(Question.NewsSet newsSet);
 }
