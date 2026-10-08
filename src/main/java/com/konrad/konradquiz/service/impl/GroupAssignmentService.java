@@ -19,6 +19,14 @@ public class GroupAssignmentService {
 
     private final ParticipantRepository participantRepository;
     private static final SecureRandom RANDOM = new SecureRandom();
+    private static final long COMPLETED_TARGET_PER_FORMAT = 20L;
+
+    private static final List<AssignmentPhase> ASSIGNMENT_PHASES = List.of(
+            new AssignmentPhase(NewsSet.ENVIRONMENT, FeedbackTiming.GROUP_B),
+            new AssignmentPhase(NewsSet.ENVIRONMENT, FeedbackTiming.GROUP_A),
+            new AssignmentPhase(NewsSet.TECHNOLOGY, FeedbackTiming.GROUP_B),
+            new AssignmentPhase(NewsSet.TECHNOLOGY, FeedbackTiming.GROUP_A)
+    );
 
     private static final List<AssignedGroup> ALL_GROUPS = List.of(
             new AssignedGroup(NewsSet.ENVIRONMENT, FeedbackTiming.GROUP_A, PresentationFormat.TEXT),
@@ -42,9 +50,11 @@ public class GroupAssignmentService {
     /**
      * Counts completed experiments across all 12 experiment cells, using the
      * completionTimeSeconds marker written after a validated answer batch.
-     * ENVIRONMENT + GROUP_B catches up to the largest non-priority cell first;
-     * once none of its formats is below that target, all 12 cells compete by count.
-     * Equal-count candidates are selected randomly, without a permanent offset.
+     * Each phase fills TEXT, INSTAGRAM and WHATSAPP to at least 20 completions:
+     * ENVIRONMENT/GROUP_B, ENVIRONMENT/GROUP_A, TECHNOLOGY/GROUP_B, then
+     * TECHNOLOGY/GROUP_A. Reaching 13 does not advance to the next phase.
+     * Within the first unfinished phase, the least completed formats are chosen
+     * with random ties. Once every phase reaches 20, all 12 cells are balanced.
      *
      * The caller must save the participant in the same transaction. The SQL Server
      * application lock serializes assignment requests until that transaction
@@ -66,17 +76,17 @@ public class GroupAssignmentService {
                         GroupCount::count
                 ));
 
-        // Priority assignments cannot raise their own catch-up target.
-        long priorityTarget = ALL_GROUPS.stream()
-                .filter(group -> !isPriority(group))
-                .mapToLong(group -> counts.getOrDefault(group, 0L))
-                .max()
-                .orElse(0L);
-
-        List<AssignedGroup> candidates = ALL_GROUPS.stream()
-                .filter(GroupAssignmentService::isPriority)
-                .filter(group -> counts.getOrDefault(group, 0L) < priorityTarget)
-                .toList();
+        List<AssignedGroup> candidates = List.of();
+        for (AssignmentPhase phase : ASSIGNMENT_PHASES) {
+            candidates = ALL_GROUPS.stream()
+                    .filter(group -> group.newsSet() == phase.newsSet()
+                            && group.feedbackTiming() == phase.feedbackTiming())
+                    .filter(group -> counts.getOrDefault(group, 0L) < COMPLETED_TARGET_PER_FORMAT)
+                    .toList();
+            if (!candidates.isEmpty()) {
+                break;
+            }
+        }
 
         if (candidates.isEmpty()) {
             candidates = ALL_GROUPS;
@@ -94,10 +104,7 @@ public class GroupAssignmentService {
         return leastPopulated.get(RANDOM.nextInt(leastPopulated.size()));
     }
 
-    private static boolean isPriority(AssignedGroup group) {
-        return group.newsSet() == NewsSet.ENVIRONMENT
-                && group.feedbackTiming() == FeedbackTiming.GROUP_B;
-    }
+    private record AssignmentPhase(NewsSet newsSet, FeedbackTiming feedbackTiming) {}
 
     public record AssignedGroup(
             NewsSet newsSet,
