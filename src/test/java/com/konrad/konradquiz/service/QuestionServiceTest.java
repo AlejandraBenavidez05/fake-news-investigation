@@ -155,6 +155,20 @@ class QuestionServiceTest {
                 .hasMessageContaining("P99");
     }
 
+    // ── findAllByCodes() ─────────────────────────────────────────────────────
+
+    @Test
+    @DisplayName("findAllByCodes() — delegates to a single findAllById query")
+    void findAllByCodes_singleQuery() {
+        List<String> codes = List.of("P1", "1_exp1");
+        when(questionRepository.findAllById(codes)).thenReturn(List.of(mockProfileQuestion, mockNewsQuestion));
+
+        List<Question> result = questionService.findAllByCodes(codes);
+
+        assertThat(result).extracting(Question::getQuestionCode).containsExactly("P1", "1_exp1");
+        verify(questionRepository, times(1)).findAllById(codes);
+    }
+
     // ── countByType() ────────────────────────────────────────────────────────
 
     @Test

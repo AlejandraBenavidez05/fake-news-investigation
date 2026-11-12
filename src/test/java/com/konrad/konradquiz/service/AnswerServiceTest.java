@@ -249,6 +249,52 @@ class AnswerServiceTest {
         verify(participantService, never()).recordCompletionTime(any(), any());
     }
 
+    @Test
+    @DisplayName("submitBatch() — questions are bulk-loaded once instead of one lookup per answer")
+    void submitBatch_questionsLoadedInSingleBulkLookup() {
+        // Arrange
+        when(participantService.findEntityById(1L)).thenReturn(mockParticipant);
+        when(answerRepository.countByParticipantId(1L)).thenReturn(0L);
+        when(questionService.countByType(Question.QuestionType.PROFILE)).thenReturn((long) PROFILE_COUNT);
+        when(questionService.findAllByCodes(anyCollection())).thenAnswer(inv -> {
+            java.util.Collection<String> codes = inv.getArgument(0);
+            return codes.stream().map(this::buildQuestion).toList();
+        });
+
+        // Act
+        BatchAnswerResponseDto result = answerService.submitBatch(1L, validBatchRequest);
+
+        // Assert
+        assertThat(result.getSavedCount()).isEqualTo(34);
+        verify(questionService, times(1)).findAllByCodes(anyCollection());
+        verify(questionService, never()).findEntityByCode(anyString());
+        ArgumentCaptor<List<Answer>> captor = ArgumentCaptor.forClass(List.class);
+        verify(answerRepository).saveAll(captor.capture());
+        assertThat(captor.getValue())
+                .extracting(a -> a.getQuestion().getQuestionCode())
+                .containsExactlyElementsOf(validBatchRequest.getAnswers().stream()
+                        .map(AnswerRequestDto::getQuestionCode).toList());
+    }
+
+    @Test
+    @DisplayName("submitBatch() — unknown question code still fails with ResourceNotFoundException")
+    void submitBatch_unknownQuestion_throwsResourceNotFound() {
+        // Arrange
+        when(participantService.findEntityById(1L)).thenReturn(mockParticipant);
+        when(answerRepository.countByParticipantId(1L)).thenReturn(0L);
+        when(questionService.countByType(Question.QuestionType.PROFILE)).thenReturn((long) PROFILE_COUNT);
+        when(questionService.findAllByCodes(anyCollection())).thenReturn(List.of());
+        when(questionService.findEntityByCode(anyString()))
+                .thenThrow(new com.konrad.konradquiz.exception.ResourceNotFoundException("Question not found: P1"));
+
+        // Act & Assert
+        assertThatThrownBy(() -> answerService.submitBatch(1L, validBatchRequest))
+                .isInstanceOf(com.konrad.konradquiz.exception.ResourceNotFoundException.class)
+                .hasMessage("Question not found: P1");
+        verify(answerRepository, never()).saveAll(any());
+        verify(participantService, never()).recordCompletionTime(any(), any());
+    }
+
     // ── helpers ──────────────────────────────────────────────────────────────
 
     private void mockSuccessfulSubmit() {

@@ -1,4 +1,3 @@
-
 package com.konrad.konradquiz.converter;
 
 import jakarta.persistence.AttributeConverter;

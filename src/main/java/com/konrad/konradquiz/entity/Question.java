@@ -37,7 +37,7 @@ public class Question {
 
     @Enumerated(EnumType.STRING)
     @Column(length = 10)
-    private CorrectAnswer correctAnswer;    // nullable — you haven't defined all yet
+    private CorrectAnswer correctAnswer;    // nullable — ground truth may not be defined yet
 
     @Column(length = 200)
     private String referenceApa;
@@ -59,7 +59,6 @@ public class Question {
         TECHNOLOGY
     }
 
-    // Replace existing questionType + add newsSet
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 10)
     private QuestionType questionType;

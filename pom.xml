@@ -42,10 +42,12 @@
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-validation</artifactId>
 		</dependency>
+		<!-- Pinned below the Boot-managed version: this is the driver that has always been resolved
+		     (and shipped) together with azure-identity for Azure SQL managed-identity authentication. -->
 		<dependency>
 			<groupId>com.microsoft.sqlserver</groupId>
 			<artifactId>mssql-jdbc</artifactId>
-			<scope>runtime</scope>
+			<version>12.6.1.jre11</version>
 		</dependency>
 		<dependency>
 			<groupId>org.projectlombok</groupId>
@@ -86,12 +88,6 @@
 			<groupId>com.azure</groupId>
 			<artifactId>azure-identity</artifactId>
 			<version>1.12.2</version>
-		</dependency>
-
-		<dependency>
-			<groupId>com.microsoft.sqlserver</groupId>
-			<artifactId>mssql-jdbc</artifactId>
-			<version>12.6.1.jre11</version>
 		</dependency>
 	</dependencies>
 

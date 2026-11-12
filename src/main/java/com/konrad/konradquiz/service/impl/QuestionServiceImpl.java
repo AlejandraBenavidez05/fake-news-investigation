@@ -4,12 +4,13 @@ import com.konrad.konradquiz.dto.request.QuestionCorrectAnswerRequestDto;
 import com.konrad.konradquiz.dto.response.QuestionAdminResponseDto;
 import com.konrad.konradquiz.entity.Question;
 import com.konrad.konradquiz.exception.ResourceNotFoundException;
-import com.konrad.konradquiz.mapper.QuestionMapper;
 import com.konrad.konradquiz.repository.QuestionRepository;
 import com.konrad.konradquiz.service.interfaces.IQuestionService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.Collection;
 import java.util.List;
 
 @Service
@@ -18,18 +19,10 @@ import java.util.List;
 public class QuestionServiceImpl implements IQuestionService {
 
     private final QuestionRepository questionRepository;
-    private final QuestionMapper questionMapper;
 
-    @Override
-    @Transactional(readOnly = true)
-    public List<Question> getAllForSession() {
-        return questionRepository.findAll(); // Question logic lives here, one place only
-    }
     @Override
     public QuestionAdminResponseDto updateCorrectAnswer(String questionCode, QuestionCorrectAnswerRequestDto dto) {
-        Question question = questionRepository.findById(questionCode)
-                .orElseThrow(() -> new ResourceNotFoundException("Question not found: " + questionCode));
-
+        Question question = findEntityByCode(questionCode);
         question.setCorrectAnswer(dto.getCorrectAnswer());
         Question saved = questionRepository.save(question);
 
@@ -49,8 +42,8 @@ public class QuestionServiceImpl implements IQuestionService {
 
     @Override
     @Transactional(readOnly = true)
-    public long countAll() {
-        return questionRepository.count();
+    public List<Question> findAllByCodes(Collection<String> questionCodes) {
+        return questionRepository.findAllById(questionCodes);
     }
 
     @Override
@@ -62,9 +55,7 @@ public class QuestionServiceImpl implements IQuestionService {
     @Override
     @Transactional(readOnly = true)
     public List<Question> getNewsQuestionsForSet(Question.NewsSet newsSet) {
-        return questionRepository.findByQuestionTypeAndNewsSet(
-                Question.QuestionType.NEWS, newsSet
-        );
+        return questionRepository.findByQuestionTypeAndNewsSet(Question.QuestionType.NEWS, newsSet);
     }
 
     @Override

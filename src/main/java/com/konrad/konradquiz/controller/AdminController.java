@@ -18,7 +18,7 @@ public class AdminController {
     private final IExportService exportService;
     private final IQuestionService questionService;
 
-    @PatchMapping("/questions/{questionCode}/answer")  // ← uncommented
+    @PatchMapping("/questions/{questionCode}/answer")
     public ResponseEntity<QuestionAdminResponseDto> updateCorrectAnswer(
             @PathVariable String questionCode,
             @Valid @RequestBody QuestionCorrectAnswerRequestDto dto) {
