@@ -9,6 +9,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import jakarta.servlet.http.HttpServletRequest;
 
 @RestController
 @RequestMapping("/api/v1/admin")
@@ -26,7 +27,12 @@ public class AdminController {
     }
 
     @GetMapping("/export/csv")
-    public void exportCsv(HttpServletResponse response) {
+    public void exportCsv(HttpServletResponse response, HttpServletRequest request) {
+        String origin = request.getHeader("Origin");
+        if (origin != null) {
+            response.setHeader("Access-Control-Allow-Origin", origin);
+            response.setHeader("Access-Control-Allow-Credentials", "true");
+        }
         exportService.exportToCsv(response);
     }
 }

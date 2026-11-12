@@ -57,6 +57,7 @@ public class ExportServiceImpl implements IExportService {
                             "consentNoRisk," +
                             "consentNoPayment," +
                             "consentProjectInfo," +
+                            "rewardId," +
                             // Question
                             "questionCode," +
                             "questionType," +
@@ -89,12 +90,9 @@ public class ExportServiceImpl implements IExportService {
                 Participant p = answer.getParticipant();
                 Question    q = answer.getQuestion();
 
-                boolean isCorrect = q.getCorrectAnswer() != null && (
-                        (q.getCorrectAnswer() == Question.CorrectAnswer.REAL && answer.getScore() >= 50) ||
-                                (q.getCorrectAnswer() == Question.CorrectAnswer.FAKE && answer.getScore() < 50)
-                );
+                boolean isCorrect = computeIsCorrect(answer, q);
 
-                SdtCategory sdt = SdtUtil.classify(q.getCorrectAnswer(), answer.getScore());
+                SdtCategory sdt = answer.getSdtCategory();
 
                 writer.println(String.join(",",
                         // ── Participant ──────────────────────────────────────
@@ -116,6 +114,7 @@ public class ExportServiceImpl implements IExportService {
                         sanitize(p.getConsentNoRisk()),
                         sanitize(p.getConsentNoPayment()),
                         sanitize(p.getConsentProjectInfo()),
+                        sanitize(p.getRewardId()),
                         // ── Question ─────────────────────────────────────────
                         sanitize(q.getQuestionCode()),
                         sanitize(q.getQuestionType()),
@@ -128,7 +127,7 @@ public class ExportServiceImpl implements IExportService {
                         sanitize(q.getSupportingQuote()),
                         sanitize(q.getPhase()),
                         sanitize(q.getCategory()),
-                        sanitize(q.getNovelty()),
+                        sanitize(answer.getNovelty()),
                         sanitize(q.getSourceVerificationUrl()),
                         sanitize(q.getFactCheckUrl()),
                         sanitize(q.getOriginName()),
@@ -155,5 +154,24 @@ public class ExportServiceImpl implements IExportService {
     private String sanitize(Object value) {
         if (value == null) return "\"\"";
         return "\"" + value.toString().replace("\"", "\"\"") + "\"";
+    }
+
+    private boolean computeIsCorrect(Answer answer, Question question) {
+        if (question.getCorrectAnswer() == null) return false;
+
+        return switch (answer.getAnswerType()) {
+            case PROFILE -> false;
+
+            case FAKE_DETECTION ->
+                // -10 to 10 scale, negative = FAKE, positive = REAL
+                    (question.getCorrectAnswer() == Question.CorrectAnswer.REAL && answer.getScore() > 0) ||
+                            (question.getCorrectAnswer() == Question.CorrectAnswer.FAKE && answer.getScore() < 0);
+
+            case MEMORY_TEST ->
+                    answer.getNovelty() != null && (
+                            (answer.getNovelty().equals("N") && answer.getScore() > 0) ||
+                                    (answer.getNovelty().equals("V") && answer.getScore() < 0)
+                    );
+        };
     }
 }

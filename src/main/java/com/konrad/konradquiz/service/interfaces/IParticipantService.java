@@ -1,8 +1,10 @@
 package com.konrad.konradquiz.service.interfaces;
 
 import com.konrad.konradquiz.dto.request.ParticipantRequestDto;
+import com.konrad.konradquiz.dto.request.RewardRequestDto;
 import com.konrad.konradquiz.dto.response.ExperimentSessionDto;
 import com.konrad.konradquiz.dto.response.ParticipantResponseDto;
+import com.konrad.konradquiz.dto.response.RewardResponseDto;
 import com.konrad.konradquiz.entity.Participant;
 
 public interface IParticipantService {
@@ -10,4 +12,5 @@ public interface IParticipantService {
     ParticipantResponseDto findById(Long id);
     Participant findEntityById(Long id);// ← returns raw entity for internal service use
     void recordCompletionTime(Long participantId, Long completionTimeSeconds);
+    RewardResponseDto selectReward(Long participantId, RewardRequestDto dto);
 }

@@ -20,6 +20,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -125,8 +126,42 @@ class ParticipantServiceTest {
         assertThat(result.getNewsPart1Questions()).isNotNull();
         assertThat(result.getNewsPart2Questions()).isNotNull();
 
-        verify(participantRepository).save(any(Participant.class));
         verify(sessionBuilderService).build(any(), any(), any());
+
+        ArgumentCaptor<Participant> participantCaptor = ArgumentCaptor.forClass(Participant.class);
+        verify(participantRepository).save(participantCaptor.capture());
+        Participant registered = participantCaptor.getValue();
+        assertThat(registered.getNewsSet()).isEqualTo(result.getNewsSet());
+        assertThat(registered.getFeedbackTiming()).isEqualTo(result.getFeedbackTiming());
+        assertThat(registered.getPresentationFormat()).isEqualTo(result.getPresentationFormat());
+        verify(questionService).getNewsQuestionsForSet(registered.getNewsSet());
+    }
+
+    @Test
+    @DisplayName("register() — priority assignment is saved and used for questions and response")
+    void register_environmentGroupB_preservesSessionContract() {
+        savedParticipant.setNewsSet(Question.NewsSet.ENVIRONMENT);
+        savedParticipant.setFeedbackTiming(Participant.FeedbackTiming.GROUP_B);
+        savedParticipant.setPresentationFormat(Participant.PresentationFormat.INSTAGRAM);
+        mockSuccessfulRegistration();
+
+        ExperimentSessionDto result = participantService.register(validRequest);
+
+        ArgumentCaptor<Participant> participantCaptor = ArgumentCaptor.forClass(Participant.class);
+        verify(participantRepository).save(participantCaptor.capture());
+        Participant registered = participantCaptor.getValue();
+        assertThat(registered.getNewsSet()).isEqualTo(Question.NewsSet.ENVIRONMENT);
+        assertThat(registered.getFeedbackTiming()).isEqualTo(Participant.FeedbackTiming.GROUP_B);
+        assertThat(registered.getPresentationFormat()).isEqualTo(Participant.PresentationFormat.INSTAGRAM);
+        assertThat(result.getNewsSet()).isEqualTo(registered.getNewsSet());
+        assertThat(result.getFeedbackTiming()).isEqualTo(registered.getFeedbackTiming());
+        assertThat(result.getPresentationFormat()).isEqualTo(registered.getPresentationFormat());
+        assertThat(result.getProfileQuestions()).hasSize(1);
+        assertThat(result.getNewsPart1Questions()).hasSize(1);
+        assertThat(result.getNewsPart2Questions()).hasSize(1);
+        verify(questionService).getNewsQuestionsForSet(Question.NewsSet.ENVIRONMENT);
+        verify(sessionBuilderService).build(mockProfileQuestions, mockNewsQuestions,
+                Participant.PresentationFormat.INSTAGRAM);
     }
 
     @Test
@@ -188,8 +223,7 @@ class ParticipantServiceTest {
         participantService.register(validRequest);
 
         // Assert
-        verify(groupAssignmentService, times(1)).assignGroup();
-        verify(groupAssignmentService, times(1)).assignNewsSet();
+        verify(groupAssignmentService, times(1)).assign();
     }
 
     @Test
@@ -264,15 +298,14 @@ class ParticipantServiceTest {
         when(encryptionUtil.hash(validRequest.getEmail())).thenReturn("hashed_email");
         when(participantRepository.existsByEmailHash("hashed_email")).thenReturn(false);
         when(participantRepository.save(any(Participant.class))).thenReturn(savedParticipant);
-        when(groupAssignmentService.assignGroup())
+        when(groupAssignmentService.assign())
                 .thenReturn(new GroupAssignmentService.AssignedGroup(
-                        Participant.FeedbackTiming.GROUP_A,
-                        Participant.PresentationFormat.WHATSAPP
+                        savedParticipant.getNewsSet(),
+                        savedParticipant.getFeedbackTiming(),
+                        savedParticipant.getPresentationFormat()
                 ));
-        when(groupAssignmentService.assignNewsSet())
-                .thenReturn(Question.NewsSet.TECHNOLOGY);
         when(questionService.getAllProfileQuestions()).thenReturn(mockProfileQuestions);
-        when(questionService.getNewsQuestionsForSet(Question.NewsSet.TECHNOLOGY))
+        when(questionService.getNewsQuestionsForSet(savedParticipant.getNewsSet()))
                 .thenReturn(mockNewsQuestions);
         when(sessionBuilderService.build(any(), any(), any()))
                 .thenReturn(new SessionBuilderService.BuiltSession(

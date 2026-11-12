@@ -13,7 +13,8 @@ public class AnswerRequestDto {
     private String questionCode;
 
     @NotNull
-    @Min(0) @Max(100)
+    @Min(-10)   // MEMORY_TEST goes from -10 to 10
+    @Max(100)   // FAKE_DETECTION and PROFILE go up to 100
     private Integer score;
 
     @NotNull
@@ -22,4 +23,6 @@ public class AnswerRequestDto {
 
     @NotNull
     private Answer.AnswerType answerType;   // FAKE_DETECTION or MEMORY_TEST
+
+    private String novelty;   // only relevant for MEMORY_TEST answers, null otherwise
 }
