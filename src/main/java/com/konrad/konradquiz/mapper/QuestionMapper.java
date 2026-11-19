@@ -8,7 +8,6 @@ import org.springframework.stereotype.Component;
 @Component
 public class QuestionMapper {
 
-    // Only one method now — used at registration
     public QuestionSessionDto toSessionDto(Question question, int assignedOrder,
                                            Participant.PresentationFormat format) {
         return QuestionSessionDto.builder()
@@ -17,8 +16,7 @@ public class QuestionMapper {
                 .itemText(question.getItemText())
                 .assignedOrder(assignedOrder)
                 .presentationFormat(format.name())
-                .correctAnswer(question.getCorrectAnswer() != null
-                        ? question.getCorrectAnswer().name() : null)
+                .correctAnswer(question.getCorrectAnswer() != null ? question.getCorrectAnswer().name() : null)
                 .referenceApa(question.getReferenceApa())
                 .supportingQuote(question.getSupportingQuote())
                 // News-specific

@@ -4,14 +4,11 @@ import com.konrad.konradquiz.dto.request.ParticipantRequestDto;
 import com.konrad.konradquiz.dto.request.RewardRequestDto;
 import com.konrad.konradquiz.dto.response.ExperimentSessionDto;
 import com.konrad.konradquiz.dto.response.ParticipantResponseDto;
-import com.konrad.konradquiz.dto.response.QuestionSessionDto;
 import com.konrad.konradquiz.dto.response.RewardResponseDto;
 import com.konrad.konradquiz.entity.Participant;
-import com.konrad.konradquiz.entity.Question;
 import com.konrad.konradquiz.exception.BusinessException;
 import com.konrad.konradquiz.exception.ResourceNotFoundException;
 import com.konrad.konradquiz.mapper.ParticipantMapper;
-import com.konrad.konradquiz.mapper.QuestionMapper;
 import com.konrad.konradquiz.repository.ParticipantRepository;
 import com.konrad.konradquiz.service.interfaces.IParticipantService;
 import com.konrad.konradquiz.service.interfaces.IQuestionService;
@@ -20,9 +17,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
+import java.util.stream.Stream;
 
 @Service
 @RequiredArgsConstructor
@@ -32,127 +27,73 @@ public class ParticipantServiceImpl implements IParticipantService {
     private final ParticipantRepository participantRepository;
     private final IQuestionService questionService;
     private final ParticipantMapper participantMapper;
-    private final QuestionMapper questionMapper;
-    private final EncryptionUtil encryptionUtil;  // ← injected here only
-
-    // Remove SecureRandom, inject GroupAssignmentService instead
+    private final EncryptionUtil encryptionUtil;
     private final GroupAssignmentService groupAssignmentService;
     private final SessionBuilderService sessionBuilderService;
+
+    /**
+     * Registers the participant and builds their session. Group assignment and the save run in this same
+     * transaction: {@link GroupAssignmentService#assign()} holds a SQL Server application lock until commit.
+     */
     @Override
     public ExperimentSessionDto register(ParticipantRequestDto dto) {
-
-        // ── Consent validation ───────────────────────────────────────────────
+        // Fail fast on consent before doing the (deliberately slow) email hashing
         validateConsents(dto);
 
-        // ── Duplicate check ──────────────────────────────────────────────────
         String emailHash = encryptionUtil.hash(dto.getEmail());
         if (participantRepository.existsByEmailHash(emailHash)) {
             throw new BusinessException("A participant with this email already exists.");
         }
 
-        // ── Group + set assignment ───────────────────────────────────────────
         GroupAssignmentService.AssignedGroup assignment = groupAssignmentService.assign();
-        Question.NewsSet newsSet = assignment.newsSet();
-
-        // ── Save participant ─────────────────────────────────────────────────
-        Participant participant = Participant.builder()
-                .alias(dto.getAlias())
-                .email(dto.getEmail())
-                .emailHash(emailHash)
-                .sex(dto.getSex())
-                .age(dto.getAge())
-                .region(dto.getRegion())
-                .feedbackTiming(assignment.feedbackTiming())
-                .presentationFormat(assignment.presentationFormat())
-                .newsSet(newsSet)
-                .consentAcademicPurpose(dto.getConsentAcademicPurpose())
-                .consentParticipationProcess(dto.getConsentParticipationProcess())
-                .consentDataProcessing(dto.getConsentDataProcessing())
-                .consentNoRisk(dto.getConsentNoRisk())
-                .consentNoPayment(dto.getConsentNoPayment())
-                .consentProjectInfo(dto.getConsentProjectInfo())
-                .build();
-
-        Participant saved = participantRepository.save(participant);
-
-        // ── Build session ────────────────────────────────────────────────────
-        List<Question> profileQuestions = questionService.getAllProfileQuestions();
-        List<Question> newsQuestions    = questionService.getNewsQuestionsForSet(newsSet);
+        Participant saved = participantRepository.save(newParticipant(dto, emailHash, assignment));
 
         SessionBuilderService.BuiltSession session = sessionBuilderService.build(
-                profileQuestions,
-                newsQuestions,
-                saved.getPresentationFormat()
-        );
+                questionService.getAllProfileQuestions(),
+                questionService.getNewsQuestionsForSet(assignment.newsSet()),
+                saved.getPresentationFormat());
 
         return ExperimentSessionDto.builder()
                 .participantId(saved.getId())
                 .alias(saved.getAlias())
                 .feedbackTiming(saved.getFeedbackTiming())
                 .presentationFormat(saved.getPresentationFormat())
-                .newsSet(newsSet)
+                .newsSet(assignment.newsSet())
                 .profileQuestions(session.profileQuestions())
                 .newsPart1Questions(session.newsPart1Questions())
                 .newsPart2Questions(session.newsPart2Questions())
                 .build();
     }
 
-    private void validateConsents(ParticipantRequestDto dto) {
-        if (!Boolean.TRUE.equals(dto.getConsentAcademicPurpose())      ||
-                !Boolean.TRUE.equals(dto.getConsentParticipationProcess()) ||
-                !Boolean.TRUE.equals(dto.getConsentDataProcessing())       ||
-                !Boolean.TRUE.equals(dto.getConsentNoRisk())               ||
-                !Boolean.TRUE.equals(dto.getConsentNoPayment())) {
-            throw new BusinessException(
-                    "All required consent declarations must be accepted to participate."
-            );
-        }
-    }
-
     @Override
     @Transactional(readOnly = true)
     public ParticipantResponseDto findById(Long id) {
-        return participantRepository.findById(id)
-                .map(participantMapper::toResponseDto)
-                .orElseThrow(() -> new ResourceNotFoundException("Participant not found: " + id));
+        return participantMapper.toResponseDto(getParticipantOrThrow(id));
     }
 
     @Override
     @Transactional(readOnly = true)
     public Participant findEntityById(Long id) {
-        return participantRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Participant not found: " + id));
+        return getParticipantOrThrow(id);
     }
 
     @Override
-    @Transactional
     public void recordCompletionTime(Long participantId, Long completionTimeSeconds) {
-        Participant participant = participantRepository.findById(participantId)
-                .orElseThrow(() -> new ResourceNotFoundException("Participant not found: " + participantId));
+        Participant participant = getParticipantOrThrow(participantId);
         participant.setCompletionTimeSeconds(completionTimeSeconds);
         participantRepository.save(participant);
     }
 
+    /** A reward can be chosen once, and only after the answers were submitted (completion time recorded). */
     @Override
-    @Transactional
     public RewardResponseDto selectReward(Long participantId, RewardRequestDto dto) {
+        Participant participant = getParticipantOrThrow(participantId);
 
-        Participant participant = participantRepository.findById(participantId)
-                .orElseThrow(() -> new ResourceNotFoundException(
-                        "Participant not found: " + participantId));
-
-        // Must have submitted answers first
         if (participant.getCompletionTimeSeconds() == null) {
-            throw new BusinessException(
-                    "Participant has not completed the experiment yet."
-            );
+            throw new BusinessException("Participant has not completed the experiment yet.");
         }
-
-        // Cannot change reward once selected
         if (participant.getRewardId() != null) {
-            throw new BusinessException(
-                    "Reward has already been selected for this participant."
-            );
+            throw new BusinessException("Reward has already been selected for this participant.");
         }
 
         participant.setRewardId(dto.getRewardId());
@@ -162,6 +103,46 @@ public class ParticipantServiceImpl implements IParticipantService {
                 .participantId(participantId)
                 .rewardId(dto.getRewardId())
                 .message("Reward " + dto.getRewardId() + " selected successfully.")
+                .build();
+    }
+
+    private Participant getParticipantOrThrow(Long id) {
+        return participantRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Participant not found: " + id));
+    }
+
+    /** consentProjectInfo is optional; every other declaration must be accepted. */
+    private static void validateConsents(ParticipantRequestDto dto) {
+        boolean allRequiredAccepted = Stream.of(
+                        dto.getConsentAcademicPurpose(),
+                        dto.getConsentParticipationProcess(),
+                        dto.getConsentDataProcessing(),
+                        dto.getConsentNoRisk(),
+                        dto.getConsentNoPayment())
+                .allMatch(Boolean.TRUE::equals);
+        if (!allRequiredAccepted) {
+            throw new BusinessException("All required consent declarations must be accepted to participate.");
+        }
+    }
+
+    private static Participant newParticipant(ParticipantRequestDto dto, String emailHash,
+                                              GroupAssignmentService.AssignedGroup assignment) {
+        return Participant.builder()
+                .alias(dto.getAlias())
+                .email(dto.getEmail())
+                .emailHash(emailHash)
+                .sex(dto.getSex())
+                .age(dto.getAge())
+                .region(dto.getRegion())
+                .feedbackTiming(assignment.feedbackTiming())
+                .presentationFormat(assignment.presentationFormat())
+                .newsSet(assignment.newsSet())
+                .consentAcademicPurpose(dto.getConsentAcademicPurpose())
+                .consentParticipationProcess(dto.getConsentParticipationProcess())
+                .consentDataProcessing(dto.getConsentDataProcessing())
+                .consentNoRisk(dto.getConsentNoRisk())
+                .consentNoPayment(dto.getConsentNoPayment())
+                .consentProjectInfo(dto.getConsentProjectInfo())
                 .build();
     }
 }
