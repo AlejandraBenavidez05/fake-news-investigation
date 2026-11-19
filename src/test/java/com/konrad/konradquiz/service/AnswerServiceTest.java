@@ -124,10 +124,10 @@ class AnswerServiceTest {
         List<Answer> saved = captor.getValue();
         // First profile answer score is 33
         assertThat(saved.get(0).getScore()).isEqualTo(33);
-        // First news part1 answer score is 75
-        assertThat(saved.get(PROFILE_COUNT).getScore()).isEqualTo(75);
-        // First news part2 answer score is 80
-        assertThat(saved.get(PROFILE_COUNT + SessionBuilderService.PART1_SIZE).getScore()).isEqualTo(80);
+        // First news part1 answer score is 7
+        assertThat(saved.get(PROFILE_COUNT).getScore()).isEqualTo(7);
+        // First news part2 answer score is -4
+        assertThat(saved.get(PROFILE_COUNT + SessionBuilderService.PART1_SIZE).getScore()).isEqualTo(-4);
     }
 
     @Test
@@ -249,6 +249,133 @@ class AnswerServiceTest {
         verify(participantService, never()).recordCompletionTime(any(), any());
     }
 
+    @Test
+    @DisplayName("submitBatch() — questions are bulk-loaded once instead of one lookup per answer")
+    void submitBatch_questionsLoadedInSingleBulkLookup() {
+        // Arrange
+        when(participantService.findEntityById(1L)).thenReturn(mockParticipant);
+        when(answerRepository.countByParticipantId(1L)).thenReturn(0L);
+        when(questionService.countByType(Question.QuestionType.PROFILE)).thenReturn((long) PROFILE_COUNT);
+        when(questionService.findAllByCodes(anyCollection())).thenAnswer(inv -> {
+            java.util.Collection<String> codes = inv.getArgument(0);
+            return codes.stream().map(this::buildQuestion).toList();
+        });
+
+        // Act
+        BatchAnswerResponseDto result = answerService.submitBatch(1L, validBatchRequest);
+
+        // Assert
+        assertThat(result.getSavedCount()).isEqualTo(34);
+        verify(questionService, times(1)).findAllByCodes(anyCollection());
+        verify(questionService, never()).findEntityByCode(anyString());
+        ArgumentCaptor<List<Answer>> captor = ArgumentCaptor.forClass(List.class);
+        verify(answerRepository).saveAll(captor.capture());
+        assertThat(captor.getValue())
+                .extracting(a -> a.getQuestion().getQuestionCode())
+                .containsExactlyElementsOf(validBatchRequest.getAnswers().stream()
+                        .map(AnswerRequestDto::getQuestionCode).toList());
+    }
+
+    @Test
+    @DisplayName("submitBatch() — unknown question code still fails with ResourceNotFoundException")
+    void submitBatch_unknownQuestion_throwsResourceNotFound() {
+        // Arrange
+        when(participantService.findEntityById(1L)).thenReturn(mockParticipant);
+        when(answerRepository.countByParticipantId(1L)).thenReturn(0L);
+        when(questionService.countByType(Question.QuestionType.PROFILE)).thenReturn((long) PROFILE_COUNT);
+        when(questionService.findAllByCodes(anyCollection())).thenReturn(List.of());
+        when(questionService.findEntityByCode(anyString()))
+                .thenThrow(new com.konrad.konradquiz.exception.ResourceNotFoundException("Question not found: P1"));
+
+        // Act & Assert
+        assertThatThrownBy(() -> answerService.submitBatch(1L, validBatchRequest))
+                .isInstanceOf(com.konrad.konradquiz.exception.ResourceNotFoundException.class)
+                .hasMessage("Question not found: P1");
+        verify(answerRepository, never()).saveAll(any());
+        verify(participantService, never()).recordCompletionTime(any(), any());
+    }
+
+    @Test
+    @DisplayName("submitBatch() — novelty and SDT category are stored with each answer")
+    void submitBatch_noveltyAndSdtCategoryStored() {
+        // Arrange: every question is REAL; part 1 scores 7 (says REAL), part 2 scores -4 (says FAKE / old)
+        mockSuccessfulSubmit();
+
+        // Act
+        answerService.submitBatch(1L, validBatchRequest);
+
+        // Assert
+        ArgumentCaptor<List<Answer>> captor = ArgumentCaptor.forClass(List.class);
+        verify(answerRepository).saveAll(captor.capture());
+        List<Answer> saved = captor.getValue();
+
+        Answer profile = saved.get(0);
+        Answer part1 = saved.get(PROFILE_COUNT);
+        Answer part2First = saved.get(PROFILE_COUNT + SessionBuilderService.PART1_SIZE);
+        Answer part2Second = saved.get(PROFILE_COUNT + SessionBuilderService.PART1_SIZE + 1);
+
+        assertThat(profile.getNovelty()).isNull();
+        assertThat(profile.getSdtCategory()).isNull();
+        assertThat(part1.getNovelty()).isNull();
+        assertThat(part1.getSdtCategory()).isEqualTo(Answer.SdtCategory.CORRECT_RESPONSE);
+        assertThat(part2First.getNovelty()).isEqualTo("N");
+        assertThat(part2Second.getNovelty()).isEqualTo("V");
+        assertThat(part2First.getSdtCategory()).isEqualTo(Answer.SdtCategory.FALSE_ALARM);
+    }
+
+    @Test
+    @DisplayName("submitBatch() — news score outside -10..10 is rejected before saving")
+    void submitBatch_newsScoreOutOfRange_throwsBusinessException() {
+        // Arrange
+        when(participantService.findEntityById(1L)).thenReturn(mockParticipant);
+        when(answerRepository.countByParticipantId(1L)).thenReturn(0L);
+        when(questionService.countByType(Question.QuestionType.PROFILE)).thenReturn((long) PROFILE_COUNT);
+        when(questionService.findEntityByCode(anyString())).thenAnswer(inv -> buildQuestion(inv.getArgument(0)));
+        validBatchRequest.getAnswers().get(PROFILE_COUNT).setScore(50);
+
+        // Act & Assert
+        assertThatThrownBy(() -> answerService.submitBatch(1L, validBatchRequest))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage("Score for FAKE_DETECTION must be between -10 and 10. Received: 50 for question N_P1_1");
+        verify(answerRepository, never()).saveAll(any());
+    }
+
+    @Test
+    @DisplayName("submitBatch() — profile score outside 0..100 is rejected")
+    void submitBatch_profileScoreOutOfRange_throwsBusinessException() {
+        // Arrange
+        when(participantService.findEntityById(1L)).thenReturn(mockParticipant);
+        when(answerRepository.countByParticipantId(1L)).thenReturn(0L);
+        when(questionService.countByType(Question.QuestionType.PROFILE)).thenReturn((long) PROFILE_COUNT);
+        validBatchRequest.getAnswers().get(0).setScore(-1);
+
+        // Act & Assert
+        assertThatThrownBy(() -> answerService.submitBatch(1L, validBatchRequest))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage("Score for PROFILE must be between 0 and 100. Received: -1 for question P1");
+    }
+
+    @Test
+    @DisplayName("submitBatch() — the first offending answer in request order decides the error")
+    void submitBatch_errorsFollowRequestOrder() {
+        // Arrange: answer #1 has an unknown code, a later answer has an invalid score
+        when(participantService.findEntityById(1L)).thenReturn(mockParticipant);
+        when(answerRepository.countByParticipantId(1L)).thenReturn(0L);
+        when(questionService.countByType(Question.QuestionType.PROFILE)).thenReturn((long) PROFILE_COUNT);
+        when(questionService.findAllByCodes(anyCollection())).thenAnswer(inv -> {
+            java.util.Collection<String> codes = inv.getArgument(0);
+            return codes.stream().filter(code -> !code.equals("P1")).map(this::buildQuestion).toList();
+        });
+        when(questionService.findEntityByCode("P1"))
+                .thenThrow(new com.konrad.konradquiz.exception.ResourceNotFoundException("Question not found: P1"));
+        validBatchRequest.getAnswers().get(PROFILE_COUNT).setScore(50);
+
+        // Act & Assert: the unknown question comes first, so it wins over the later invalid score
+        assertThatThrownBy(() -> answerService.submitBatch(1L, validBatchRequest))
+                .isInstanceOf(com.konrad.konradquiz.exception.ResourceNotFoundException.class)
+                .hasMessage("Question not found: P1");
+    }
+
     // ── helpers ──────────────────────────────────────────────────────────────
 
     private void mockSuccessfulSubmit() {
@@ -290,9 +417,11 @@ class AnswerServiceTest {
         for (int i = 1; i <= count; i++) {
             AnswerRequestDto dto = new AnswerRequestDto();
             dto.setQuestionCode(prefix + i);
-            dto.setScore(type == Answer.AnswerType.FAKE_DETECTION ? 75 : 80);
+            // NEWS scale is -10..10; novelty is only sent for MEMORY_TEST answers
+            dto.setScore(type == Answer.AnswerType.FAKE_DETECTION ? 7 : -4);
             dto.setQuestionOrder(i);
             dto.setAnswerType(type);
+            dto.setNovelty(type == Answer.AnswerType.MEMORY_TEST ? (i % 2 == 0 ? "V" : "N") : null);
             answers.add(dto);
         }
         return answers;

@@ -74,9 +74,9 @@ public class Answer {
     private Question question;
 
     public enum AnswerType {
-        PROFILE,         // nada/poco/bastante/mucho mapped to 0/33/66/100
-        FAKE_DETECTION,  // Part 1: 0=sure FAKE, 100=sure REAL
-        MEMORY_TEST      // Part 2: 0=sure OLD, 100=sure NEW
+        PROFILE,         // 0..100
+        FAKE_DETECTION,  // Part 1: -10 = sure FAKE, 0 = unsure, 10 = sure REAL
+        MEMORY_TEST      // Part 2: -10 = sure OLD,  0 = unsure, 10 = sure NEW
     }
 
     @Enumerated(EnumType.STRING)

@@ -4,12 +4,12 @@ import com.konrad.konradquiz.dto.request.QuestionCorrectAnswerRequestDto;
 import com.konrad.konradquiz.dto.response.QuestionAdminResponseDto;
 import com.konrad.konradquiz.service.interfaces.IExportService;
 import com.konrad.konradquiz.service.interfaces.IQuestionService;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import jakarta.servlet.http.HttpServletRequest;
 
 @RestController
 @RequestMapping("/api/v1/admin")
@@ -19,13 +19,18 @@ public class AdminController {
     private final IExportService exportService;
     private final IQuestionService questionService;
 
-    @PatchMapping("/questions/{questionCode}/answer")  // ← uncommented
+    @PatchMapping("/questions/{questionCode}/answer")
     public ResponseEntity<QuestionAdminResponseDto> updateCorrectAnswer(
             @PathVariable String questionCode,
             @Valid @RequestBody QuestionCorrectAnswerRequestDto dto) {
         return ResponseEntity.ok(questionService.updateCorrectAnswer(questionCode, dto));
     }
 
+    /**
+     * Streams the CSV export. The CORS headers are set explicitly because the body is written directly to the
+     * servlet response; requests from origins outside the CORS allow-list are rejected by the CORS filter before
+     * reaching this method.
+     */
     @GetMapping("/export/csv")
     public void exportCsv(HttpServletResponse response, HttpServletRequest request) {
         String origin = request.getHeader("Origin");

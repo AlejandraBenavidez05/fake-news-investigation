@@ -8,9 +8,15 @@ import com.konrad.konradquiz.dto.response.RewardResponseDto;
 import com.konrad.konradquiz.entity.Participant;
 
 public interface IParticipantService {
+
     ExperimentSessionDto register(ParticipantRequestDto dto);
+
     ParticipantResponseDto findById(Long id);
-    Participant findEntityById(Long id);// ← returns raw entity for internal service use
+
+    /** Returns the entity or throws {@code ResourceNotFoundException}. For internal service use. */
+    Participant findEntityById(Long id);
+
     void recordCompletionTime(Long participantId, Long completionTimeSeconds);
+
     RewardResponseDto selectReward(Long participantId, RewardRequestDto dto);
 }
